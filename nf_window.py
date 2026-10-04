@@ -135,9 +135,10 @@ class ItemRow:
 
 
 class NFWindow:
-    def __init__(self, root, api):
+    def __init__(self, root, api, on_voltar=None):
         self.root = root
         self.api = api
+        self.on_voltar = on_voltar
         self.items = []
         self.supplier_id_by_name = {}
         self.ingredients = []
@@ -231,6 +232,11 @@ class NFWindow:
 
         footer = ttk.Frame(self.root, padding=10)
         footer.pack(fill="x", side="bottom")
+
+        if self.on_voltar:
+            ttk.Button(
+                footer, text="← Voltar", command=self.on_voltar,
+            ).pack(side="left", padx=(0, 8))
 
         ttk.Button(
             footer, text="+ Adicionar item", command=self.add_item
