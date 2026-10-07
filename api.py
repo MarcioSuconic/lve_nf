@@ -1,3 +1,4 @@
+#/home/marcio/Desktop/projetos/lve_nf/api.py
 import requests
 
 
@@ -141,3 +142,6 @@ class APIClient:
             f"/api/base-recipes/{recipe_id}/replace-executions/",
             payload,
         )
+        
+    def get_recipe_cost(self, recipe_id: int):
+        return self._get(f"/api/base-recipes/{recipe_id}/cost/")

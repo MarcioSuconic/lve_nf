@@ -1,3 +1,4 @@
+#/home/marcio/Desktop/projetos/lve_nf/recipe_window.py
 import tkinter as tk
 from datetime import timedelta
 from tkinter import messagebox, ttk

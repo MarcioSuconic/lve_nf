@@ -1,8 +1,10 @@
+# lve_nf/main.py
 import tkinter as tk
 from tkinter import ttk
 
 from api import APIClient
 from config import API_BASE_URL
+from cost_window import CostWindow
 from login_window import LoginWindow
 from nf_window import NFWindow
 from recipe_window import RecipeWindow
@@ -17,7 +19,7 @@ def _limpar(root):
 def _tela_menu(root, api):
     _limpar(root)
     root.title("LVE — Menu")
-    root.geometry("420x260")
+    root.geometry("420x300")
 
     frame = ttk.Frame(root, padding=30)
     frame.pack(fill="both", expand=True)
@@ -38,6 +40,11 @@ def _tela_menu(root, api):
     ).pack(fill="x", pady=6)
 
     ttk.Button(
+        frame, text="Custo e Preço",
+        command=lambda: _tela_custo(root, api),
+    ).pack(fill="x", pady=6)
+
+    ttk.Button(
         frame, text="Sair",
         command=root.destroy,
     ).pack(fill="x", pady=(20, 0))
@@ -51,6 +58,11 @@ def _tela_nf(root, api):
 def _tela_receita(root, api):
     _limpar(root)
     RecipeWindow(root, api, on_voltar=lambda: _tela_menu(root, api))
+
+
+def _tela_custo(root, api):
+    _limpar(root)
+    CostWindow(root, api, on_voltar=lambda: _tela_menu(root, api))
 
 
 def main():

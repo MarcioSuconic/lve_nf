@@ -1,3 +1,4 @@
+#/home/marcio/Desktop/projetos/lve_nf/dialogs/stage_dialog.py
 import tkinter as tk
 from tkinter import messagebox, ttk
 

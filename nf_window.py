@@ -1,3 +1,4 @@
+#/home/marcio/Desktop/projetos/lve_nf/nf_window.py
 import tkinter as tk
 from datetime import date
 from decimal import Decimal, InvalidOperation
