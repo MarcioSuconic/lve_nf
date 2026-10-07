@@ -7,6 +7,7 @@ from config import API_BASE_URL
 from cost_window import CostWindow
 from login_window import LoginWindow
 from nf_window import NFWindow
+from product_cost_window import ProductCostWindow
 from recipe_window import RecipeWindow
 
 
@@ -19,7 +20,7 @@ def _limpar(root):
 def _tela_menu(root, api):
     _limpar(root)
     root.title("LVE — Menu")
-    root.geometry("420x300")
+    root.geometry("420x360")
 
     frame = ttk.Frame(root, padding=30)
     frame.pack(fill="both", expand=True)
@@ -40,8 +41,13 @@ def _tela_menu(root, api):
     ).pack(fill="x", pady=6)
 
     ttk.Button(
-        frame, text="Custo e Preço",
+        frame, text="Custo da Receita Base",
         command=lambda: _tela_custo(root, api),
+    ).pack(fill="x", pady=6)
+
+    ttk.Button(
+        frame, text="Custo e Preço do Produto",
+        command=lambda: _tela_custo_produto(root, api),
     ).pack(fill="x", pady=6)
 
     ttk.Button(
@@ -63,6 +69,11 @@ def _tela_receita(root, api):
 def _tela_custo(root, api):
     _limpar(root)
     CostWindow(root, api, on_voltar=lambda: _tela_menu(root, api))
+
+
+def _tela_custo_produto(root, api):
+    _limpar(root)
+    ProductCostWindow(root, api, on_voltar=lambda: _tela_menu(root, api))
 
 
 def main():

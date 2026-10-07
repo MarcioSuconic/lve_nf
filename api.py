@@ -145,3 +145,22 @@ class APIClient:
         
     def get_recipe_cost(self, recipe_id: int):
         return self._get(f"/api/base-recipes/{recipe_id}/cost/")
+    
+    def get_product_unit_cost(self, product_id: int, data: str | None = None):
+        path = f"/api/products/{product_id}/unit-cost/"
+        if data:
+            path += f"?data={data}"
+        return self._get(path)
+    
+
+    def generate_tech_sheet(self, product_id: int):
+        """POST /api/products/{id}/tech-sheet/ — gera nova versão."""
+        return self._post(
+            f"/api/products/{product_id}/tech-sheet/", {},
+        )
+
+    def get_tech_sheet_url(self, product_id: int, version: int | None = None) -> str:
+        path = f"/api/products/{product_id}/tech-sheet/download/"
+        if version:
+            path += f"?version={version}"
+        return f"{self.base_url}{path}"

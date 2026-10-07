@@ -1,4 +1,4 @@
-#/home/marcio/Desktop/projetos/lve_nf/recipe_window.py
+# lve_nf/recipe_window.py
 import tkinter as tk
 from datetime import timedelta
 from tkinter import messagebox, ttk
@@ -8,8 +8,46 @@ from dialogs.stage_dialog import StageDialog
 from dialogs.timeline_dialog import TimelineDialog
 
 
+# ---------------------------------------------------------------------------
+# Grade de colunas de passos — referência única para cabeçalho e campos
+# ---------------------------------------------------------------------------
+STEP_COLUMNS = [
+    ("Operação", 0),
+    ("", 1),            # botão "+"
+    ("Descrição", 2),
+    ("Tempo", 3),
+    ("Elapsed", 4),
+    ("Insumo", 5),
+    ("Qtde", 6),
+    ("Un", 7),
+    ("Maquinário", 8),
+    ("Utensílio", 9),
+    ("Inc", 10),
+    ("", 11),           # botão "X"
+]
+
+# Largura mínima de cada coluna, em pixels
+STEP_COLUMN_WIDTHS = {
+    0: 130,   # Operação
+    1: 40,    # botão +
+    2: 200,   # Descrição
+    3: 70,    # Tempo
+    4: 70,    # Elapsed
+    5: 150,   # Insumo
+    6: 80,    # Qtde
+    7: 100,   # Un
+    8: 130,   # Maquinário
+    9: 130,   # Utensílio
+    10: 50,   # Inc
+    11: 40,   # X
+}
+
+# Padding horizontal aplicado a TODAS as colunas (títulos e campos),
+# para garantir alinhamento.
+STEP_PADX = (0, 8)
+
+
 def minutos_para_duration(minutos: float) -> str:
-    """Converte minutos (float) para 'HH:MM:SS' (formato do DurationField)."""
     total_segundos = int(round(minutos * 60))
     h = total_segundos // 3600
     m = (total_segundos % 3600) // 60
@@ -18,7 +56,6 @@ def minutos_para_duration(minutos: float) -> str:
 
 
 def duration_para_minutos(valor: str) -> float:
-    """Converte 'HH:MM:SS' para minutos (float). Aceita 'HH:MM' também."""
     if not valor:
         return 0.0
     partes = valor.split(":")
@@ -37,10 +74,6 @@ def duration_para_minutos(valor: str) -> float:
 
 
 class StepRow:
-    """
-    Uma linha de passo dentro de um bloco de etapa.
-    """
-
     def __init__(
         self,
         parent,
@@ -66,120 +99,111 @@ class StepRow:
         self.frame = ttk.Frame(parent)
         self.frame.pack(fill="x", pady=1)
 
-        # Operação + botão "+"
+        for col, largura in STEP_COLUMN_WIDTHS.items():
+            self.frame.grid_columnconfigure(col, minsize=largura)
+
+        # Operação
         self.operation_var = tk.StringVar()
         self.operation_combo = ttk.Combobox(
-            self.frame,
-            textvariable=self.operation_var,
-            state="readonly",
-            width=14,
+            self.frame, textvariable=self.operation_var,
+            state="readonly", width=14,
             values=self._operation_names(),
         )
-        self.operation_combo.grid(row=0, column=0, padx=2)
+        self.operation_combo.grid(
+            row=0, column=0, padx=STEP_PADX, sticky="w",
+        )
+
+        # Botão "+"
         ttk.Button(
-            self.frame, text="+", width=2,
-            command=self._nova_operacao,
-        ).grid(row=0, column=1, padx=(0, 6))
+            self.frame, text="+", width=2, command=self._nova_operacao,
+        ).grid(row=0, column=1, padx=STEP_PADX, sticky="w")
 
         # Descrição
         self.description_var = tk.StringVar()
         ttk.Entry(
             self.frame, textvariable=self.description_var, width=22,
-        ).grid(row=0, column=2, padx=2)
+        ).grid(row=0, column=2, padx=STEP_PADX, sticky="w")
 
-        # Tempo (minutos)
+        # Tempo
         self.execution_var = tk.StringVar()
-        entry_tempo = ttk.Entry(
+        ttk.Entry(
             self.frame, textvariable=self.execution_var, width=6,
-        )
-        entry_tempo.grid(row=0, column=3, padx=2)
-        self.execution_var.trace_add(
-            "write", lambda *a: self.on_change(),
-        )
+        ).grid(row=0, column=3, padx=STEP_PADX, sticky="w")
+        self.execution_var.trace_add("write", lambda *a: self.on_change())
 
-        # Elapsed (minutos)
+        # Elapsed
         self.elapsed_var = tk.StringVar()
-        entry_elapsed = ttk.Entry(
+        ttk.Entry(
             self.frame, textvariable=self.elapsed_var, width=6,
-        )
-        entry_elapsed.grid(row=0, column=4, padx=2)
-        self.elapsed_var.trace_add(
-            "write", lambda *a: self.on_change(),
-        )
+        ).grid(row=0, column=4, padx=STEP_PADX, sticky="w")
+        self.elapsed_var.trace_add("write", lambda *a: self.on_change())
 
         # Insumo
         self.ingredient_var = tk.StringVar()
         self.ingredient_combo = ttk.Combobox(
-            self.frame,
-            textvariable=self.ingredient_var,
-            state="readonly",
-            width=16,
+            self.frame, textvariable=self.ingredient_var,
+            state="readonly", width=16,
             values=self._ingredient_names(),
         )
-        self.ingredient_combo.grid(row=0, column=5, padx=2)
+        self.ingredient_combo.grid(
+            row=0, column=5, padx=STEP_PADX, sticky="w",
+        )
 
         # Quantidade
         self.qtde_var = tk.StringVar()
         ttk.Entry(
             self.frame, textvariable=self.qtde_var, width=8,
-        ).grid(row=0, column=6, padx=2)
+        ).grid(row=0, column=6, padx=STEP_PADX, sticky="w")
 
         # Unidade
         self.unit_var = tk.StringVar()
         self.unit_combo = ttk.Combobox(
-            self.frame,
-            textvariable=self.unit_var,
-            state="readonly",
-            width=10,
+            self.frame, textvariable=self.unit_var,
+            state="readonly", width=10,
             values=self._unit_labels(),
         )
-        self.unit_combo.grid(row=0, column=7, padx=2)
+        self.unit_combo.grid(row=0, column=7, padx=STEP_PADX, sticky="w")
 
         # Maquinário
         self.machinery_var = tk.StringVar()
         self.machinery_combo = ttk.Combobox(
-            self.frame,
-            textvariable=self.machinery_var,
-            state="readonly",
-            width=14,
+            self.frame, textvariable=self.machinery_var,
+            state="readonly", width=14,
             values=self._machinery_names(),
         )
-        self.machinery_combo.grid(row=0, column=8, padx=2)
+        self.machinery_combo.grid(
+            row=0, column=8, padx=STEP_PADX, sticky="w",
+        )
 
         # Utensílio
         self.utensil_var = tk.StringVar()
         self.utensil_combo = ttk.Combobox(
-            self.frame,
-            textvariable=self.utensil_var,
-            state="readonly",
-            width=14,
+            self.frame, textvariable=self.utensil_var,
+            state="readonly", width=14,
             values=self._utensil_names(),
         )
-        self.utensil_combo.grid(row=0, column=9, padx=2)
+        self.utensil_combo.grid(
+            row=0, column=9, padx=STEP_PADX, sticky="w",
+        )
 
         # Incorporado
         self.unincorporated_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(
-            self.frame,
-            variable=self.unincorporated_var,
-            text="",
-        ).grid(row=0, column=10, padx=2)
+            self.frame, variable=self.unincorporated_var, text="",
+        ).grid(row=0, column=10, padx=STEP_PADX)
 
         # Remover
         ttk.Button(
             self.frame, text="X", width=2,
             command=lambda: self.on_remove(self),
-        ).grid(row=0, column=11, padx=2)
+        ).grid(row=0, column=11, padx=STEP_PADX, sticky="w")
 
     # ---- helpers ----
-
     def _operation_names(self):
         return [o["operation_base_recipe"] for o in self.operations]
 
     def _operation_id_by_name(self):
-        return {
-            o["operation_base_recipe"]: o["id"] for o in self.operations
-        }
+        return {o["operation_base_recipe"]: o["id"] for o in self.operations}
 
     def _ingredient_names(self):
         return [i["food_ingredient"] for i in self.ingredients]
@@ -205,13 +229,10 @@ class StepRow:
     def _utensil_id_by_name(self):
         return {u["utensil"]: u["id"] for u in self.utensils}
 
-    # ---- callbacks ----
-
     def _nova_operacao(self):
         self.on_new_operation(self)
 
     # ---- refresh ----
-
     def refresh_operations(self, operations):
         self.operations = operations
         self.operation_combo["values"] = self._operation_names()
@@ -235,7 +256,6 @@ class StepRow:
                 return
 
     # ---- leitura ----
-
     def get_execution_min(self) -> float:
         try:
             return float(self.execution_var.get().replace(",", "."))
@@ -252,7 +272,6 @@ class StepRow:
         self.elapsed_var.set(f"{minutos:.2f}")
 
     def get_payload(self):
-        """Devolve o dict no formato do replace-executions."""
         stage_id = getattr(self, "stage_id", None)
         return {
             "stage_execution": stage_id,
@@ -268,12 +287,8 @@ class StepRow:
                 self.unit_var.get()
             ),
             "unincorporated_ingredient": self.unincorporated_var.get(),
-            "execution_time": minutos_para_duration(
-                self.get_execution_min()
-            ),
-            "elapsed_time": minutos_para_duration(
-                self.get_elapsed_min()
-            ),
+            "execution_time": minutos_para_duration(self.get_execution_min()),
+            "elapsed_time": minutos_para_duration(self.get_elapsed_min()),
             "machinery": self._machinery_id_by_name().get(
                 self.machinery_var.get()
             ),
@@ -287,11 +302,6 @@ class StepRow:
 
 
 class StageBlock:
-    """
-    Bloco visual de uma etapa: cabeçalho (combobox de etapa + botões)
-    e lista de passos abaixo.
-    """
-
     def __init__(
         self,
         parent,
@@ -319,11 +329,10 @@ class StageBlock:
 
         self.steps = []
 
-        # Frame externo com borda
         self.frame = ttk.LabelFrame(parent, padding=6)
         self.frame.pack(fill="x", pady=4, padx=2)
 
-        # Cabeçalho do bloco
+        # Cabeçalho do bloco (etapa + botões)
         header = ttk.Frame(self.frame)
         header.pack(fill="x")
 
@@ -331,17 +340,12 @@ class StageBlock:
 
         self.stage_var = tk.StringVar()
         self.stage_combo = ttk.Combobox(
-            header,
-            textvariable=self.stage_var,
-            state="readonly",
-            width=20,
+            header, textvariable=self.stage_var,
+            state="readonly", width=20,
             values=self._stage_names(),
         )
         self.stage_combo.pack(side="left", padx=2)
-
-        self.stage_var.trace_add(
-            "write", lambda *a: self._on_stage_change(),
-        )
+        self.stage_var.trace_add("write", lambda *a: self._on_stage_change())
 
         ttk.Button(
             header, text="+ Nova etapa", command=self._nova_etapa,
@@ -352,42 +356,29 @@ class StageBlock:
             command=lambda: self.on_remove_block(self),
         ).pack(side="right", padx=2)
 
-        # Cabeçalho das colunas
+        # ---- Cabeçalho das colunas (grid alinhado ao StepRow) ----
         cols = ttk.Frame(self.frame)
         cols.pack(fill="x", pady=(6, 0))
-        for texto, largura in [
-            ("Operação", 14),
-            ("", 3),
-            ("Descrição", 22),
-            ("Tempo", 6),
-            ("Elapsed", 6),
-            ("Insumo", 16),
-            ("Qtde", 8),
-            ("Un", 10),
-            ("Maquinário", 14),
-            ("Utensílio", 14),
-            ("Inc", 4),
-            ("", 3),
-        ]:
-            ttk.Label(cols, text=texto, width=largura).pack(
-                side="left", padx=2,
+
+        for col, largura in STEP_COLUMN_WIDTHS.items():
+            cols.grid_columnconfigure(col, minsize=largura)
+
+        for texto, col in STEP_COLUMNS:
+            ttk.Label(cols, text=texto).grid(
+                row=0, column=col, padx=STEP_PADX, sticky="w",
             )
 
         # Container de passos
         self.steps_container = ttk.Frame(self.frame)
         self.steps_container.pack(fill="x")
 
-        # Botão adicionar passo
         ttk.Button(
-            self.frame, text="+ Adicionar passo",
-            command=self.add_step,
+            self.frame, text="+ Adicionar passo", command=self.add_step,
         ).pack(anchor="w", pady=(4, 0))
 
     def _on_stage_change(self):
         for step in self.steps:
             self._apply_stage_to_step(step)
-
-    # ---- helpers ----
 
     def _stage_names(self):
         return [s["stage_base_recipe"] for s in self.stages]
@@ -395,12 +386,8 @@ class StageBlock:
     def _stage_id_by_name(self):
         return {s["stage_base_recipe"]: s["id"] for s in self.stages}
 
-    # ---- callbacks ----
-
     def _nova_etapa(self):
         self.on_new_stage(self)
-
-    # ---- passos ----
 
     def add_step(self):
         step = StepRow(
@@ -414,7 +401,6 @@ class StageBlock:
             on_remove=self.remove_step,
             on_new_operation=self.on_new_operation,
         )
-        # Amarra o stage_id atual à linha
         self._apply_stage_to_step(step)
         self.steps.append(step)
         self.on_change()
@@ -427,8 +413,6 @@ class StageBlock:
     def _apply_stage_to_step(self, step):
         stage_id = self._stage_id_by_name().get(self.stage_var.get())
         step.stage_id = stage_id
-
-    # ---- atualizações externas ----
 
     def refresh_stages(self, stages):
         self.stages = stages
@@ -458,12 +442,9 @@ class StageBlock:
         for s in self.stages:
             if s["id"] == stage_id:
                 self.stage_var.set(s["stage_base_recipe"])
-                # reaplica em todos os passos
                 for step in self.steps:
                     self._apply_stage_to_step(step)
                 return
-
-    # ---- leitura ----
 
     def get_stage_id(self):
         return self._stage_id_by_name().get(self.stage_var.get())
@@ -495,7 +476,7 @@ class RecipeWindow:
         self.operations = []
         self.base_recipes = []
 
-        self.current_recipe_id = None  # None = nova receita
+        self.current_recipe_id = None
         self.blocks = []
 
         self.root.title("LVE — Cadastro de Receita Base")
@@ -504,9 +485,7 @@ class RecipeWindow:
         self._load_data()
         self._build_ui()
         self._refresh_recipes_combo()
-        self.add_block()  # começa com uma etapa em branco
-
-    # ---- carga inicial ----
+        self.add_block()
 
     def _load_data(self):
         try:
@@ -524,7 +503,6 @@ class RecipeWindow:
             self.root.destroy()
             raise SystemExit
 
-        # Filtra ativos
         self.ingredients = [i for i in self.ingredients if i.get("active", True)]
         self.machineries = [m for m in self.machineries if m.get("active", True)]
         self.utensils = [u for u in self.utensils if u.get("active", True)]
@@ -543,10 +521,7 @@ class RecipeWindow:
         data = reloaders[attr]()
         setattr(self, attr, [d for d in data if d.get("active", True)])
 
-    # ---- UI ----
-
     def _build_ui(self):
-        # ===== Cabeçalho =====
         header = ttk.LabelFrame(self.root, text="Receita Base", padding=8)
         header.pack(fill="x", padx=10, pady=(10, 4))
 
@@ -601,7 +576,6 @@ class RecipeWindow:
             row3, text="Nova receita", command=self._nova_receita,
         ).pack(side="left", padx=8)
 
-        # ===== Área de blocos (com scroll) =====
         container = ttk.Frame(self.root)
         container.pack(fill="both", expand=True, padx=10, pady=4)
 
@@ -613,18 +587,13 @@ class RecipeWindow:
         self.canvas.pack(side="left", fill="both", expand=True)
 
         self.blocks_frame = ttk.Frame(self.canvas)
-        self.canvas.create_window(
-            (0, 0), window=self.blocks_frame, anchor="nw",
-        )
+        self.canvas.create_window((0, 0), window=self.blocks_frame, anchor="nw")
 
         self.blocks_frame.bind(
             "<Configure>",
-            lambda e: self.canvas.configure(
-                scrollregion=self.canvas.bbox("all"),
-            ),
+            lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")),
         )
 
-        # ===== Rodapé =====
         footer = ttk.Frame(self.root)
         footer.pack(fill="x", padx=10, pady=(4, 10))
 
@@ -648,15 +617,12 @@ class RecipeWindow:
         ).pack(side="left", padx=20)
 
         ttk.Button(
-            footer, text="Ver linha do tempo",
-            command=self._abrir_timeline,
+            footer, text="Ver linha do tempo", command=self._abrir_timeline,
         ).pack(side="right", padx=4)
 
         ttk.Button(
             footer, text="Salvar tudo", command=self._salvar_tudo,
         ).pack(side="right")
-
-    # ---- blocos ----
 
     def add_block(self):
         block = StageBlock(
@@ -685,8 +651,6 @@ class RecipeWindow:
         self.blocks.remove(block)
         self._recalc_total()
 
-    # ---- novos cadastros ----
-
     def _nova_etapa(self, block):
         dlg = StageDialog(self.root, self.api)
         self.root.wait_window(dlg)
@@ -707,8 +671,6 @@ class RecipeWindow:
             b.refresh_operations(self.operations)
         step_row.select_operation_by_id(dlg.created["id"])
 
-    # ---- total ----
-
     def _recalc_total(self):
         total = 0.0
         for block in self.blocks:
@@ -720,21 +682,13 @@ class RecipeWindow:
                     total = fim
         self.total_var.set(f"Total: {total:.2f} min")
 
-    # ---- recalcular sequência ----
-
     def _recalcular_sequencia(self):
-        """
-        Renumera o elapsed de todos os passos como soma dos execution
-        anteriores, na ordem em que aparecem na tela.
-        """
         acumulado = 0.0
         for block in self.blocks:
             for step in block.steps:
                 step.set_elapsed_min(acumulado)
                 acumulado += step.get_execution_min()
         self._recalc_total()
-
-    # ---- timeline ----
 
     def _abrir_timeline(self):
         passos = []
@@ -753,8 +707,6 @@ class RecipeWindow:
             titulo=self.name_var.get() or "Receita",
             passos=passos,
         )
-
-    # ---- carregar receita ----
 
     def _refresh_recipes_combo(self):
         self.base_recipes = self.api.list_base_recipes()
@@ -780,28 +732,23 @@ class RecipeWindow:
             messagebox.showerror("Erro", f"Falha ao carregar:\n{e}")
             return
 
-        # Limpa blocos atuais
         for block in self.blocks:
             block.destroy()
         self.blocks.clear()
 
-        # Preenche cabeçalho
         self.current_recipe_id = recipe_id
         self.name_var.set(dados["base_recipe"])
         self.description_var.set(dados.get("description", ""))
         self.size_var.set(str(dados["size"]))
-        # Seleciona unidade do tamanho
         for u in self.units:
             if u["id"] == dados["unit_size"]:
                 self.unit_size_var.set(f'{u["symbol"]} - {u["unit"]}')
                 break
 
-        # Agrupa execuções por etapa
         grupos = {}
         for ex in execucoes:
             grupos.setdefault(ex["stage_execution"], []).append(ex)
 
-        # Ordena grupos pela ordem das etapas no combo original
         for stage_id, execs in grupos.items():
             execs.sort(key=lambda e: duration_para_minutos(e["elapsed_time"]))
             block = StageBlock(
@@ -823,7 +770,6 @@ class RecipeWindow:
             for ex in execs:
                 block.add_step()
                 step = block.steps[-1]
-                # Preenche campos
                 step.description_var.set(ex.get("description_execution", ""))
                 step.execution_var.set(
                     f"{duration_para_minutos(ex['execution_time']):.2f}"
@@ -831,39 +777,32 @@ class RecipeWindow:
                 step.elapsed_var.set(
                     f"{duration_para_minutos(ex['elapsed_time']):.2f}"
                 )
-                # Operação
                 for o in self.operations:
                     if o["id"] == ex["operation_execution"]:
                         step.operation_var.set(o["operation_base_recipe"])
                         break
-                # Insumo
                 if ex.get("food_ingredient"):
                     for i in self.ingredients:
                         if i["id"] == ex["food_ingredient"]:
                             step.ingredient_var.set(i["food_ingredient"])
                             break
-                # Quantidade
                 if ex.get("qtde_food_ingredient"):
                     step.qtde_var.set(str(ex["qtde_food_ingredient"]))
-                # Unidade
                 if ex.get("unidade_qtde_food_ingredient"):
                     for u in self.units:
                         if u["id"] == ex["unidade_qtde_food_ingredient"]:
                             step.unit_var.set(f'{u["symbol"]} - {u["unit"]}')
                             break
-                # Maquinário
                 if ex.get("machinery"):
                     for m in self.machineries:
                         if m["id"] == ex["machinery"]:
                             step.machinery_var.set(m["machinery"])
                             break
-                # Utensílio
                 if ex.get("utensils"):
                     for u in self.utensils:
                         if u["id"] == ex["utensils"]:
                             step.utensil_var.set(u["utensil"])
                             break
-                # Unincorporated
                 step.unincorporated_var.set(
                     ex.get("unincorporated_ingredient", False)
                 )
@@ -882,10 +821,7 @@ class RecipeWindow:
         self.recipe_combo_var.set("")
         self.add_block()
 
-    # ---- salvar ----
-
     def _salvar_tudo(self):
-        # Validações básicas
         nome = self.name_var.get().strip()
         if not nome:
             messagebox.showwarning("Atenção", "Informe o nome da receita.")
@@ -897,7 +833,6 @@ class RecipeWindow:
             messagebox.showwarning("Atenção", "Tamanho inválido.")
             return
 
-        # Unidade do tamanho
         unit_size_id = None
         for u in self.units:
             if f'{u["symbol"]} - {u["unit"]}' == self.unit_size_var.get():
@@ -907,7 +842,6 @@ class RecipeWindow:
             messagebox.showwarning("Atenção", "Escolha a unidade do tamanho.")
             return
 
-        # Monta execuções
         execucoes = []
         for block in self.blocks:
             stage_id = block.get_stage_id()
@@ -929,7 +863,6 @@ class RecipeWindow:
                         "O tempo de cada passo deve ser pelo menos 0,1 min.",
                     )
                     return
-                # Ajusta stage_execution caso tenha sido trocado no combo
                 payload["stage_execution"] = stage_id
                 execucoes.append(payload)
 
@@ -939,7 +872,6 @@ class RecipeWindow:
             )
             return
 
-        # Aviso se for atualização de receita existente
         if self.current_recipe_id:
             ok = messagebox.askyesno(
                 "Confirmar",

@@ -3,8 +3,6 @@ import tkinter as tk
 from decimal import Decimal, ROUND_HALF_UP
 from tkinter import messagebox, ttk
 
-from api import APIError
-
 
 def fmt(valor, casas=2):
     if valor is None:
@@ -20,8 +18,8 @@ class CostWindow:
         self.api = api
         self.on_voltar = on_voltar
 
-        self.root.title("LVE — Custo e Preço")
-        self.root.geometry("1000x650")
+        self.root.title("LVE — Custo da Receita Base")
+        self.root.geometry("1100x650")
 
         self.recipes = []
         self.current_cost = None
@@ -56,57 +54,52 @@ class CostWindow:
         ).pack(side="left", padx=8)
 
         # ---- Resultado ----
-        self.result_frame = ttk.LabelFrame(
-            self.root, text="Custo detalhado", padding=10,
-        )
-        self.result_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        box = ttk.LabelFrame(self.root, text="Custo detalhado", padding=10)
+        box.pack(fill="both", expand=True, padx=10, pady=10)
 
-        # Treeview dos passos
         cols = ("etapa", "operacao", "tempo", "maquinario",
                 "insumo", "qtde", "custo_insumo",
                 "custo_energia", "custo_mao_obra")
-        self.tree = ttk.Treeview(
-            self.result_frame, columns=cols, show="headings", height=12,
+        headings = (
+            ("etapa", "Etapa"),
+            ("operacao", "Operação"),
+            ("tempo", "Tempo (h)"),
+            ("maquinario", "Maquinário"),
+            ("insumo", "Insumo"),
+            ("qtde", "Qtde"),
+            ("custo_insumo", "Custo insumo"),
+            ("custo_energia", "Custo energia"),
+            ("custo_mao_obra", "Custo mão de obra"),
         )
-        for c, w in zip(cols, (100, 90, 60, 120, 120, 80, 90, 90, 100)):
-            self.tree.heading(c, text=c.replace("_", " ").title())
+        widths = (110, 100, 70, 130, 130, 90, 100, 100, 110)
+        self.tree = ttk.Treeview(box, columns=cols, show="headings", height=14)
+        for (c, t), w in zip(headings, widths):
+            self.tree.heading(c, text=t)
             self.tree.column(c, width=w, anchor="w")
         self.tree.pack(fill="both", expand=True)
 
-        # Totais
-        totais = ttk.Frame(self.root, padding=10)
-        totais.pack(fill="x")
+        # ---- Totais ----
+        totals = ttk.LabelFrame(self.root, text="Totais", padding=10)
+        totals.pack(fill="x", padx=10, pady=6)
 
-        self.lbl_insumos = ttk.Label(totais, text="Insumos: R$ 0,00")
-        self.lbl_insumos.pack(side="left", padx=8)
-        self.lbl_energia = ttk.Label(totais, text="Energia: R$ 0,00")
-        self.lbl_energia.pack(side="left", padx=8)
-        self.lbl_mao = ttk.Label(totais, text="Mão de obra: R$ 0,00")
-        self.lbl_mao.pack(side="left", padx=8)
+        self.lbl_insumos = ttk.Label(totals, text="Insumos: R$ 0,00")
+        self.lbl_insumos.pack(side="left", padx=10)
+        self.lbl_energia = ttk.Label(totals, text="Energia: R$ 0,00")
+        self.lbl_energia.pack(side="left", padx=10)
+        self.lbl_mao = ttk.Label(totals, text="Mão de obra: R$ 0,00")
+        self.lbl_mao.pack(side="left", padx=10)
         self.lbl_total = ttk.Label(
-            totais, text="CUSTO TOTAL: R$ 0,00", font=("", 11, "bold"),
+            totals, text="CUSTO TOTAL: R$ 0,00", font=("", 12, "bold"),
         )
         self.lbl_total.pack(side="left", padx=20)
 
-        # Margem e preço
-        precos = ttk.LabelFrame(self.root, text="Preço de venda", padding=10)
-        precos.pack(fill="x", padx=10, pady=(0, 10))
+        # ---- Informação de tamanho/rendimento ----
+        info = ttk.Frame(self.root, padding=(10, 0))
+        info.pack(fill="x")
+        self.lbl_size = ttk.Label(info, text="", foreground="#555")
+        self.lbl_size.pack(side="left")
 
-        ttk.Label(precos, text="Margem desejada (%):").pack(side="left")
-        self.margem_var = tk.StringVar(value="60")
-        ttk.Entry(precos, textvariable=self.margem_var, width=8).pack(
-            side="left", padx=4,
-        )
-        ttk.Button(
-            precos, text="Calcular preço", command=self._calcular_preco,
-        ).pack(side="left", padx=8)
-
-        self.lbl_preco = ttk.Label(
-            precos, text="Preço sugerido: —", font=("", 12, "bold"),
-        )
-        self.lbl_preco.pack(side="left", padx=20)
-
-        # Rodapé
+        # ---- Rodapé ----
         footer = ttk.Frame(self.root, padding=10)
         footer.pack(fill="x", side="bottom")
         if self.on_voltar:
@@ -139,15 +132,19 @@ class CostWindow:
         for p in self.current_cost["passos"]:
             insumo = p.get("insumo") or {}
             nome_insumo = insumo.get("food_ingredient", "—")
-            qtde = insumo.get("qtde_receita", "—")
+            if insumo.get("erro"):
+                nome_insumo = f'{insumo.get("food_ingredient", "?")} (sem compra)'
+            qtde = insumo.get("qtde_receita", "")
             unidade = insumo.get("unidade_receita", "")
+            qtde_str = f"{qtde} {unidade}".strip() or "—"
+
             self.tree.insert("", "end", values=(
                 p["etapa"],
                 p["operacao"],
-                fmt(p["tempo_h"], 2),
+                fmt(p["tempo_h"], 3),
                 p.get("maquinario") or "—",
                 nome_insumo,
-                f"{qtde} {unidade}".strip(),
+                qtde_str,
                 fmt(p["custo_insumo"]),
                 fmt(p["custo_energia"]),
                 fmt(p["custo_mao_obra"]),
@@ -161,22 +158,6 @@ class CostWindow:
         self.lbl_total.config(
             text=f"CUSTO TOTAL: R$ {fmt(c['custo_total'])}"
         )
-        self.lbl_preco.config(text="Preço sugerido: —")
-
-    def _calcular_preco(self):
-        if not self.current_cost:
-            messagebox.showwarning("Atenção", "Calcule o custo primeiro.")
-            return
-        try:
-            margem = Decimal(self.margem_var.get().replace(",", ".")) / 100
-        except Exception:
-            messagebox.showwarning("Atenção", "Margem inválida.")
-            return
-
-        if margem <= 0 or margem >= 1:
-            messagebox.showwarning("Atenção", "Margem deve estar entre 0 e 100.")
-            return
-
-        custo = Decimal(self.current_cost["custo_total"])
-        preco = custo / (1 - margem)   # margem sobre preço
-        self.lbl_preco.config(text=f"Preço sugerido: R$ {fmt(preco)}")
+        self.lbl_size.config(
+            text=f"Tamanho da receita: {fmt(c['size'], 2)} {c['unit_size']}"
+        )
