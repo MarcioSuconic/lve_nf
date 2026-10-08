@@ -1,6 +1,7 @@
 # lve_nf/recipe_window.py
 import tkinter as tk
 from datetime import timedelta
+from decimal import Decimal, InvalidOperation
 from tkinter import messagebox, ttk
 
 from dialogs.operation_dialog import OperationDialog
@@ -22,28 +23,17 @@ STEP_COLUMNS = [
     ("Un", 7),
     ("Maquinário", 8),
     ("Utensílio", 9),
-    ("Inc", 10),
-    ("", 11),           # botão "X"
+    ("Incorp.", 10),
+    ("Temp.", 11),
+    ("pH", 12),
+    ("", 13),           # botão "X"
 ]
 
-# Largura mínima de cada coluna, em pixels
 STEP_COLUMN_WIDTHS = {
-    0: 130,   # Operação
-    1: 40,    # botão +
-    2: 200,   # Descrição
-    3: 70,    # Tempo
-    4: 70,    # Elapsed
-    5: 150,   # Insumo
-    6: 80,    # Qtde
-    7: 100,   # Un
-    8: 130,   # Maquinário
-    9: 130,   # Utensílio
-    10: 50,   # Inc
-    11: 40,   # X
+    0: 130, 1: 40, 2: 200, 3: 70, 4: 70, 5: 150, 6: 80,
+    7: 100, 8: 130, 9: 130, 10: 70, 11: 60, 12: 55, 13: 40,
 }
 
-# Padding horizontal aplicado a TODAS as colunas (títulos e campos),
-# para garantir alinhamento.
 STEP_PADX = (0, 8)
 
 
@@ -186,17 +176,29 @@ class StepRow:
             row=0, column=9, padx=STEP_PADX, sticky="w",
         )
 
-        # Incorporado
-        self.unincorporated_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(
-            self.frame, variable=self.unincorporated_var, text="",
-        ).grid(row=0, column=10, padx=STEP_PADX)
+        # Incorporação (%)
+        self.incorporation_var = tk.StringVar(value="100")
+        ttk.Entry(
+            self.frame, textvariable=self.incorporation_var, width=6,
+        ).grid(row=0, column=10, padx=STEP_PADX, sticky="w")
+
+        # Temperatura (°C)
+        self.temperature_var = tk.StringVar(value="20.0")
+        ttk.Entry(
+            self.frame, textvariable=self.temperature_var, width=6,
+        ).grid(row=0, column=11, padx=STEP_PADX, sticky="w")
+
+        # pH
+        self.ph_var = tk.StringVar(value="7.00")
+        ttk.Entry(
+            self.frame, textvariable=self.ph_var, width=6,
+        ).grid(row=0, column=12, padx=STEP_PADX, sticky="w")
 
         # Remover
         ttk.Button(
             self.frame, text="X", width=2,
             command=lambda: self.on_remove(self),
-        ).grid(row=0, column=11, padx=STEP_PADX, sticky="w")
+        ).grid(row=0, column=13, padx=STEP_PADX, sticky="w")
 
     # ---- helpers ----
     def _operation_names(self):
@@ -268,6 +270,38 @@ class StepRow:
         except ValueError:
             return 0.0
 
+    def get_incorporation(self) -> str:
+        valor = self.incorporation_var.get().strip().replace(",", ".")
+        if not valor:
+            return "100.00"
+        try:
+            d = Decimal(valor)
+            if d < 0:
+                d = Decimal("0")
+            if d > 100:
+                d = Decimal("100")
+            return f"{d:.2f}"
+        except InvalidOperation:
+            return "100.00"
+
+    def get_temperature(self) -> str:
+        valor = self.temperature_var.get().strip().replace(",", ".")
+        if not valor:
+            return "20.0"
+        try:
+            return f"{Decimal(valor):.1f}"
+        except InvalidOperation:
+            return "20.0"
+
+    def get_ph(self) -> str:
+        valor = self.ph_var.get().strip().replace(",", ".")
+        if not valor:
+            return "7.00"
+        try:
+            return f"{Decimal(valor):.2f}"
+        except InvalidOperation:
+            return "7.00"
+
     def set_elapsed_min(self, minutos: float):
         self.elapsed_var.set(f"{minutos:.2f}")
 
@@ -286,7 +320,9 @@ class StepRow:
             "unidade_qtde_food_ingredient": self._unit_id_by_label().get(
                 self.unit_var.get()
             ),
-            "unincorporated_ingredient": self.unincorporated_var.get(),
+            "incorporation_percentage": self.get_incorporation(),
+            "temperature": self.get_temperature(),
+            "pH": self.get_ph(),
             "execution_time": minutos_para_duration(self.get_execution_min()),
             "elapsed_time": minutos_para_duration(self.get_elapsed_min()),
             "machinery": self._machinery_id_by_name().get(
@@ -315,6 +351,8 @@ class StageBlock:
         on_remove_block,
         on_new_stage,
         on_new_operation,
+        on_move_up=None,
+        on_move_down=None,
     ):
         self.stages = stages
         self.ingredients = ingredients
@@ -326,6 +364,8 @@ class StageBlock:
         self.on_remove_block = on_remove_block
         self.on_new_stage = on_new_stage
         self.on_new_operation = on_new_operation
+        self.on_move_up = on_move_up
+        self.on_move_down = on_move_down
 
         self.steps = []
 
@@ -351,10 +391,23 @@ class StageBlock:
             header, text="+ Nova etapa", command=self._nova_etapa,
         ).pack(side="left", padx=4)
 
+        # Botões ↑↓ e Remover (à direita)
         ttk.Button(
             header, text="Remover etapa",
             command=lambda: self.on_remove_block(self),
         ).pack(side="right", padx=2)
+
+        if self.on_move_down:
+            ttk.Button(
+                header, text="↓", width=3,
+                command=lambda: self.on_move_down(self),
+            ).pack(side="right", padx=2)
+
+        if self.on_move_up:
+            ttk.Button(
+                header, text="↑", width=3,
+                command=lambda: self.on_move_up(self),
+            ).pack(side="right", padx=2)
 
         # ---- Cabeçalho das colunas (grid alinhado ao StepRow) ----
         cols = ttk.Frame(self.frame)
@@ -480,7 +533,7 @@ class RecipeWindow:
         self.blocks = []
 
         self.root.title("LVE — Cadastro de Receita Base")
-        self.root.geometry("1400x720")
+        self.root.geometry("1600x720")
 
         self._load_data()
         self._build_ui()
@@ -637,6 +690,8 @@ class RecipeWindow:
             on_remove_block=self._remove_block,
             on_new_stage=self._nova_etapa,
             on_new_operation=self._nova_operacao,
+            on_move_up=self._mover_bloco_acima,
+            on_move_down=self._mover_bloco_abaixo,
         )
         self.blocks.append(block)
         self._recalc_total()
@@ -650,6 +705,34 @@ class RecipeWindow:
         block.destroy()
         self.blocks.remove(block)
         self._recalc_total()
+
+    # ---- mover blocos ↑↓ ----
+    def _mover_bloco_acima(self, block):
+        idx = self.blocks.index(block)
+        if idx == 0:
+            return
+        self.blocks[idx], self.blocks[idx - 1] = (
+            self.blocks[idx - 1], self.blocks[idx],
+        )
+        self._repack_blocks()
+        self._recalc_total()
+
+    def _mover_bloco_abaixo(self, block):
+        idx = self.blocks.index(block)
+        if idx == len(self.blocks) - 1:
+            return
+        self.blocks[idx], self.blocks[idx + 1] = (
+            self.blocks[idx + 1], self.blocks[idx],
+        )
+        self._repack_blocks()
+        self._recalc_total()
+
+    def _repack_blocks(self):
+        """Reposiciona os frames dos blocos na ordem atual de self.blocks."""
+        for b in self.blocks:
+            b.frame.pack_forget()
+        for b in self.blocks:
+            b.frame.pack(fill="x", pady=4, padx=2)
 
     def _nova_etapa(self, block):
         dlg = StageDialog(self.root, self.api)
@@ -695,12 +778,16 @@ class RecipeWindow:
         for block in self.blocks:
             etapa_nome = block.stage_var.get() or "?"
             for step in block.steps:
+                try:
+                    pct = Decimal(step.incorporation_var.get() or "100")
+                except InvalidOperation:
+                    pct = Decimal("100")
                 passos.append({
                     "elapsed_min": step.get_elapsed_min(),
                     "execution_min": step.get_execution_min(),
                     "operacao": step.operation_var.get() or "?",
                     "etapa": etapa_nome,
-                    "incorporado": not step.unincorporated_var.get(),
+                    "incorporado": pct > 0,
                 })
         TimelineDialog(
             self.root,
@@ -745,11 +832,20 @@ class RecipeWindow:
                 self.unit_size_var.set(f'{u["symbol"]} - {u["unit"]}')
                 break
 
+        # Agrupa execuções por etapa
         grupos = {}
         for ex in execucoes:
             grupos.setdefault(ex["stage_execution"], []).append(ex)
 
-        for stage_id, execs in grupos.items():
+        # Ordena os grupos pelo menor elapsed_time de cada um
+        grupos_ordenados = sorted(
+            grupos.items(),
+            key=lambda kv: min(
+                duration_para_minutos(e["elapsed_time"]) for e in kv[1]
+            ),
+        )
+
+        for stage_id, execs in grupos_ordenados:
             execs.sort(key=lambda e: duration_para_minutos(e["elapsed_time"]))
             block = StageBlock(
                 self.blocks_frame,
@@ -763,6 +859,8 @@ class RecipeWindow:
                 on_remove_block=self._remove_block,
                 on_new_stage=self._nova_etapa,
                 on_new_operation=self._nova_operacao,
+                on_move_up=self._mover_bloco_acima,
+                on_move_down=self._mover_bloco_abaixo,
             )
             block.select_stage_by_id(stage_id)
             self.blocks.append(block)
@@ -803,9 +901,31 @@ class RecipeWindow:
                         if u["id"] == ex["utensils"]:
                             step.utensil_var.set(u["utensil"])
                             break
-                step.unincorporated_var.set(
-                    ex.get("unincorporated_ingredient", False)
-                )
+                # Incorporação
+                inc = ex.get("incorporation_percentage")
+                if inc is None:
+                    inc = "0" if ex.get("unincorporated_ingredient") else "100"
+                try:
+                    inc_str = f"{Decimal(str(inc)):.2f}"
+                except (InvalidOperation, TypeError):
+                    inc_str = "100.00"
+                step.incorporation_var.set(inc_str)
+
+                # Temperatura
+                temp = ex.get("temperature", "20.0")
+                try:
+                    temp_str = f"{Decimal(str(temp)):.1f}"   # ← 1 casa
+                except (InvalidOperation, TypeError):
+                    temp_str = "20.0"
+                step.temperature_var.set(temp_str)
+
+                # pH
+                ph = ex.get("pH", "7.00")
+                try:
+                    ph_str = f"{Decimal(str(ph)):.2f}"
+                except (InvalidOperation, TypeError):
+                    ph_str = "7.00"
+                step.ph_var.set(ph_str)
 
         self._recalc_total()
 
