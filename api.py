@@ -51,18 +51,29 @@ class APIClient:
                 url = None
         return results
 
-    def _post(self, path: str, payload: dict):
+    def _post(self, path: str, payload: dict, method: str = "POST"):
+        """Faz POST, PUT ou PATCH em `path` com `payload`."""
+        url = f"{self.base_url}{path}"
         try:
-            r = requests.post(
-                f"{self.base_url}{path}",
-                json=payload,
-                headers=self._headers(),
-                timeout=15,
-            )
+            if method == "PUT":
+                r = requests.put(
+                    url, json=payload, headers=self._headers(), timeout=15,
+                )
+            elif method == "PATCH":
+                r = requests.patch(
+                    url, json=payload, headers=self._headers(), timeout=15,
+                )
+            else:
+                r = requests.post(
+                    url, json=payload, headers=self._headers(), timeout=15,
+                )
         except requests.RequestException as e:
             raise APIError(f"Erro de conexão: {e}")
-        if r.status_code in (200, 201):
-            return r.json()
+        if r.status_code in (200, 201, 204):
+            try:
+                return r.json()
+            except Exception:
+                return {}
         try:
             detail = r.json()
         except Exception:
@@ -164,3 +175,16 @@ class APIClient:
         if version:
             path += f"?version={version}"
         return f"{self.base_url}{path}"
+    
+    def update_base_recipe(self, recipe_id: int, payload: dict):
+        """PATCH /api/base-recipes/{id}/ — atualiza só o cabeçalho."""
+        return self._post(
+            f"/api/base-recipes/{recipe_id}/",
+            payload,
+            method="PATCH",
+        )
+
+    def create_base_recipe_only_header(self, payload: dict):
+        """POST /api/base-recipes/ com executions=[] (receita vazia)."""
+        payload = {**payload, "executions": []}
+        return self._post("/api/base-recipes/", payload)

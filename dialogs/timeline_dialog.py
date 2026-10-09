@@ -1,4 +1,4 @@
-#/home/marcio/Desktop/projetos/lve_nf/dialogs/timeline_dialog.py
+# lve_nf/dialogs/timeline_dialog.py
 import tkinter as tk
 from tkinter import ttk
 
@@ -21,7 +21,8 @@ class TimelineDialog(tk.Toplevel):
     Popup da linha do tempo de uma receita.
 
     Recebe uma lista de passos com:
-        {elapsed_min, execution_min, operacao, etapa, incorporado}
+        {elapsed_min, execution_min, operacao, etapa, incorporado,
+         insumo, ph, temperatura}
 
     Uso:
         dlg = TimelineDialog(parent, titulo="Pão de queijo", passos=passos)
@@ -41,7 +42,9 @@ class TimelineDialog(tk.Toplevel):
         self.passos.sort(key=lambda p: p["elapsed_min"])
 
         # Dimensões do desenho
-        self.LARGURA = 900
+        self.LARGURA_GANTT = 700            # área do gantt
+        self.LARGURA_TABELA = 480           # coluna lateral com detalhes
+        self.LARGURA = self.LARGURA_GANTT + self.LARGURA_TABELA
         self.ALTURA_BARRA = 26
         self.ESPACO_BARRA = 6
         self.MARGEM_ESQ = 60
@@ -49,12 +52,12 @@ class TimelineDialog(tk.Toplevel):
         self.MARGEM_TOPO = 40
 
         n = len(self.passos)
-        altura_total = (
+        altura_gantt = (
             self.MARGEM_TOPO
             + n * (self.ALTURA_BARRA + self.ESPACO_BARRA)
             + 40
         )
-        altura_total = max(altura_total, 200)
+        altura_total = max(altura_gantt, 200)
 
         self.canvas = tk.Canvas(
             self,
@@ -74,6 +77,7 @@ class TimelineDialog(tk.Toplevel):
 
         self.bind("<Escape>", lambda e: self.destroy())
 
+    # ------------------------------------------------------------------
     def _desenhar(self):
         if not self.passos:
             self.canvas.create_text(
@@ -83,14 +87,29 @@ class TimelineDialog(tk.Toplevel):
             )
             return
 
+        # Linha vertical separando gantt da tabela
+        x_div = self.LARGURA_GANTT + 20
+        self.canvas.create_line(
+            x_div, 10, x_div, self.canvas.winfo_reqheight() - 10,
+            fill="#DDD",
+        )
+
+        # ---- Desenha o Gantt (à esquerda) ----
+        self._desenhar_gantt()
+
+        # ---- Desenha a tabela lateral (à direita) ----
+        self._desenhar_tabela(x_div + 10)
+
+    # ------------------------------------------------------------------
+    def _desenhar_gantt(self):
         # Determina escala em minutos
         min_inicio = min(p["elapsed_min"] for p in self.passos)
         max_fim = max(
             p["elapsed_min"] + p["execution_min"] for p in self.passos
         )
-        duracao = max(max_fim - min_inicio, 1)  # evita divisão por zero
+        duracao = max(max_fim - min_inicio, 1)
 
-        largura_util = self.LARGURA - self.MARGEM_ESQ - self.MARGEM_DIR
+        largura_util = self.LARGURA_GANTT - self.MARGEM_ESQ - self.MARGEM_DIR
 
         def x_para(minuto):
             return (
@@ -99,9 +118,7 @@ class TimelineDialog(tk.Toplevel):
             )
 
         # ---- Régua no topo ----
-        # Passo do marcador (escolhe um passo "bonito")
         passo_marcador = self._escolher_passo(duracao)
-
         marca = min_inicio
         while marca <= max_fim:
             x = x_para(marca)
@@ -118,15 +135,13 @@ class TimelineDialog(tk.Toplevel):
             )
             marca += passo_marcador
 
-        # Linha base da régua
         self.canvas.create_line(
             self.MARGEM_ESQ, self.MARGEM_TOPO,
-            self.LARGURA - self.MARGEM_DIR, self.MARGEM_TOPO,
+            self.LARGURA_GANTT - self.MARGEM_DIR, self.MARGEM_TOPO,
             fill="#ccc",
         )
 
         # ---- Barras ----
-        # Mapeia etapa -> cor (cicla na paleta)
         etapas = sorted({p["etapa"] for p in self.passos})
         cor_por_etapa = {
             etapa: CORES[i % len(CORES)]
@@ -137,8 +152,6 @@ class TimelineDialog(tk.Toplevel):
         for p in self.passos:
             x1 = x_para(p["elapsed_min"])
             x2 = x_para(p["elapsed_min"] + p["execution_min"])
-
-            # Garante largura mínima visível
             if x2 - x1 < 2:
                 x2 = x1 + 2
 
@@ -148,16 +161,13 @@ class TimelineDialog(tk.Toplevel):
             cor = cor_por_etapa[p["etapa"]]
             if p["incorporado"]:
                 self.canvas.create_rectangle(
-                    x1, y1, x2, y2,
-                    fill=cor, outline="",
+                    x1, y1, x2, y2, fill=cor, outline="",
                 )
             else:
-                # Textura listrada — desenha linhas diagonais
                 self.canvas.create_rectangle(
                     x1, y1, x2, y2,
                     fill="#eeeeee", outline=cor, width=2,
                 )
-                # Listras
                 passo = 6
                 xx = x1
                 while xx < x2:
@@ -167,23 +177,20 @@ class TimelineDialog(tk.Toplevel):
                     )
                     xx += passo * 2
 
-            # Nome da operação dentro da barra, se couber
             largura_barra = x2 - x1
-            texto = p["operacao"]
             if largura_barra > 60:
                 self.canvas.create_text(
                     (x1 + x2) / 2, (y1 + y2) / 2,
-                    text=texto, fill="white", font=("", 9),
+                    text=p["operacao"], fill="white", font=("", 9),
                 )
             else:
-                # Não cabe: coloca ao lado
                 self.canvas.create_text(
                     x2 + 4, (y1 + y2) / 2,
-                    text=texto, anchor="w",
+                    text=p["operacao"], anchor="w",
                     fill="#333", font=("", 9),
                 )
 
-            # Rótulo da etapa (à esquerda da barra)
+            # Rótulo da etapa à esquerda da barra
             self.canvas.create_text(
                 self.MARGEM_ESQ - 6, (y1 + y2) / 2,
                 text=p["etapa"][:10],
@@ -210,6 +217,71 @@ class TimelineDialog(tk.Toplevel):
             )
             leg_x += 20 + len(etapa) * 7
 
+    # ------------------------------------------------------------------
+    def _desenhar_tabela(self, x0):
+        """
+        Desenha uma tabela textual à direita do Gantt, com:
+        Etapa | Operação | Insumo | pH | Temp | Tempo
+        """
+        # Larguras das colunas
+        colunas = [
+            ("Etapa",      90),
+            ("Operação",   90),
+            ("Insumo",    130),
+            ("pH",         45),
+            ("Temp.",      50),
+            ("Tempo",      55),
+        ]
+        largura_total = sum(w for _, w in colunas)
+
+        x = x0
+        y = self.MARGEM_TOPO - 12
+
+        # Cabeçalho
+        for titulo, largura in colunas:
+            self.canvas.create_text(
+                x + 4, y,
+                text=titulo, anchor="w",
+                fill="#333", font=("", 9, "bold"),
+            )
+            x += largura
+
+        # Linha separadora
+        self.canvas.create_line(
+            x0, y + 12, x0 + largura_total, y + 12,
+            fill="#999",
+        )
+
+        # Linhas
+        y = self.MARGEM_TOPO + 20 + self.ALTURA_BARRA / 2
+        for p in self.passos:
+            insumo = p.get("insumo") or "—"
+            # Trunca insumo longo
+            if len(insumo) > 18:
+                insumo = insumo[:17] + "…"
+
+            x = x0
+            for valor, (_, largura) in zip(
+                [
+                    p["etapa"][:14],
+                    p["operacao"][:14],
+                    insumo,
+                    p.get("ph", "—"),
+                    p.get("temperatura", "—"),
+                    f'{p["execution_min"]:.1f} min',
+                ],
+                colunas,
+            ):
+                self.canvas.create_text(
+                    x + 4, y,
+                    text=valor, anchor="w",
+                    fill="#222", font=("", 9),
+                )
+                x += largura
+
+            y += self.ALTURA_BARRA + self.ESPACO_BARRA
+
+    # ------------------------------------------------------------------
     @staticmethod
     def _escolher_passo(duracao):
         """Escolhe um passo de marcação 'bonito' conforme a duração total."""

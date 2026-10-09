@@ -1,6 +1,5 @@
 # lve_nf/recipe_window.py
 import tkinter as tk
-from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 from tkinter import messagebox, ttk
 
@@ -9,12 +8,9 @@ from dialogs.stage_dialog import StageDialog
 from dialogs.timeline_dialog import TimelineDialog
 
 
-# ---------------------------------------------------------------------------
-# Grade de colunas de passos — referência única para cabeçalho e campos
-# ---------------------------------------------------------------------------
 STEP_COLUMNS = [
     ("Operação", 0),
-    ("", 1),            # botão "+"
+    ("", 1),
     ("Descrição", 2),
     ("Tempo", 3),
     ("Elapsed", 4),
@@ -26,7 +22,7 @@ STEP_COLUMNS = [
     ("Incorp.", 10),
     ("Temp.", 11),
     ("pH", 12),
-    ("", 13),           # botão "X"
+    ("", 13),
 ]
 
 STEP_COLUMN_WIDTHS = {
@@ -65,21 +61,12 @@ def duration_para_minutos(valor: str) -> float:
 
 class StepRow:
     def __init__(
-        self,
-        parent,
-        ingredients,
-        units,
-        machineries,
-        utensils,
-        operations,
-        on_change,
-        on_remove,
-        on_new_operation,
+        self, parent, ingredients, units, machineries, utensils,
+        operations, on_change, on_remove, on_new_operation,
     ):
         self.on_change = on_change
         self.on_remove = on_remove
         self.on_new_operation = on_new_operation
-
         self.ingredients = ingredients
         self.units = units
         self.machineries = machineries
@@ -92,115 +79,87 @@ class StepRow:
         for col, largura in STEP_COLUMN_WIDTHS.items():
             self.frame.grid_columnconfigure(col, minsize=largura)
 
-        # Operação
         self.operation_var = tk.StringVar()
         self.operation_combo = ttk.Combobox(
             self.frame, textvariable=self.operation_var,
-            state="readonly", width=14,
-            values=self._operation_names(),
+            state="readonly", width=14, values=self._operation_names(),
         )
-        self.operation_combo.grid(
-            row=0, column=0, padx=STEP_PADX, sticky="w",
-        )
+        self.operation_combo.grid(row=0, column=0, padx=STEP_PADX, sticky="w")
 
-        # Botão "+"
         ttk.Button(
             self.frame, text="+", width=2, command=self._nova_operacao,
         ).grid(row=0, column=1, padx=STEP_PADX, sticky="w")
 
-        # Descrição
         self.description_var = tk.StringVar()
         ttk.Entry(
             self.frame, textvariable=self.description_var, width=22,
         ).grid(row=0, column=2, padx=STEP_PADX, sticky="w")
 
-        # Tempo
         self.execution_var = tk.StringVar()
         ttk.Entry(
             self.frame, textvariable=self.execution_var, width=6,
         ).grid(row=0, column=3, padx=STEP_PADX, sticky="w")
         self.execution_var.trace_add("write", lambda *a: self.on_change())
 
-        # Elapsed
         self.elapsed_var = tk.StringVar()
         ttk.Entry(
             self.frame, textvariable=self.elapsed_var, width=6,
         ).grid(row=0, column=4, padx=STEP_PADX, sticky="w")
         self.elapsed_var.trace_add("write", lambda *a: self.on_change())
 
-        # Insumo
         self.ingredient_var = tk.StringVar()
         self.ingredient_combo = ttk.Combobox(
             self.frame, textvariable=self.ingredient_var,
-            state="readonly", width=16,
-            values=self._ingredient_names(),
+            state="readonly", width=16, values=self._ingredient_names(),
         )
-        self.ingredient_combo.grid(
-            row=0, column=5, padx=STEP_PADX, sticky="w",
-        )
+        self.ingredient_combo.grid(row=0, column=5, padx=STEP_PADX, sticky="w")
 
-        # Quantidade
         self.qtde_var = tk.StringVar()
         ttk.Entry(
             self.frame, textvariable=self.qtde_var, width=8,
         ).grid(row=0, column=6, padx=STEP_PADX, sticky="w")
 
-        # Unidade
         self.unit_var = tk.StringVar()
         self.unit_combo = ttk.Combobox(
             self.frame, textvariable=self.unit_var,
-            state="readonly", width=10,
-            values=self._unit_labels(),
+            state="readonly", width=10, values=self._unit_labels(),
         )
         self.unit_combo.grid(row=0, column=7, padx=STEP_PADX, sticky="w")
 
-        # Maquinário
         self.machinery_var = tk.StringVar()
         self.machinery_combo = ttk.Combobox(
             self.frame, textvariable=self.machinery_var,
-            state="readonly", width=14,
-            values=self._machinery_names(),
+            state="readonly", width=14, values=self._machinery_names(),
         )
-        self.machinery_combo.grid(
-            row=0, column=8, padx=STEP_PADX, sticky="w",
-        )
+        self.machinery_combo.grid(row=0, column=8, padx=STEP_PADX, sticky="w")
 
-        # Utensílio
         self.utensil_var = tk.StringVar()
         self.utensil_combo = ttk.Combobox(
             self.frame, textvariable=self.utensil_var,
-            state="readonly", width=14,
-            values=self._utensil_names(),
+            state="readonly", width=14, values=self._utensil_names(),
         )
-        self.utensil_combo.grid(
-            row=0, column=9, padx=STEP_PADX, sticky="w",
-        )
+        self.utensil_combo.grid(row=0, column=9, padx=STEP_PADX, sticky="w")
 
-        # Incorporação (%)
         self.incorporation_var = tk.StringVar(value="100")
         ttk.Entry(
             self.frame, textvariable=self.incorporation_var, width=6,
         ).grid(row=0, column=10, padx=STEP_PADX, sticky="w")
 
-        # Temperatura (°C)
         self.temperature_var = tk.StringVar(value="20.0")
         ttk.Entry(
             self.frame, textvariable=self.temperature_var, width=6,
         ).grid(row=0, column=11, padx=STEP_PADX, sticky="w")
 
-        # pH
         self.ph_var = tk.StringVar(value="7.00")
         ttk.Entry(
             self.frame, textvariable=self.ph_var, width=6,
         ).grid(row=0, column=12, padx=STEP_PADX, sticky="w")
 
-        # Remover
         ttk.Button(
             self.frame, text="X", width=2,
             command=lambda: self.on_remove(self),
         ).grid(row=0, column=13, padx=STEP_PADX, sticky="w")
 
-    # ---- helpers ----
     def _operation_names(self):
         return [o["operation_base_recipe"] for o in self.operations]
 
@@ -234,7 +193,6 @@ class StepRow:
     def _nova_operacao(self):
         self.on_new_operation(self)
 
-    # ---- refresh ----
     def refresh_operations(self, operations):
         self.operations = operations
         self.operation_combo["values"] = self._operation_names()
@@ -257,7 +215,6 @@ class StepRow:
                 self.operation_var.set(o["operation_base_recipe"])
                 return
 
-    # ---- leitura ----
     def get_execution_min(self) -> float:
         try:
             return float(self.execution_var.get().replace(",", "."))
@@ -339,20 +296,9 @@ class StepRow:
 
 class StageBlock:
     def __init__(
-        self,
-        parent,
-        stages,
-        ingredients,
-        units,
-        machineries,
-        utensils,
-        operations,
-        on_change,
-        on_remove_block,
-        on_new_stage,
-        on_new_operation,
-        on_move_up=None,
-        on_move_down=None,
+        self, parent, stages, ingredients, units, machineries, utensils,
+        operations, on_change, on_remove_block, on_new_stage,
+        on_new_operation, on_move_up=None, on_move_down=None,
     ):
         self.stages = stages
         self.ingredients = ingredients
@@ -366,13 +312,11 @@ class StageBlock:
         self.on_new_operation = on_new_operation
         self.on_move_up = on_move_up
         self.on_move_down = on_move_down
-
         self.steps = []
 
         self.frame = ttk.LabelFrame(parent, padding=6)
         self.frame.pack(fill="x", pady=4, padx=2)
 
-        # Cabeçalho do bloco (etapa + botões)
         header = ttk.Frame(self.frame)
         header.pack(fill="x")
 
@@ -381,8 +325,7 @@ class StageBlock:
         self.stage_var = tk.StringVar()
         self.stage_combo = ttk.Combobox(
             header, textvariable=self.stage_var,
-            state="readonly", width=20,
-            values=self._stage_names(),
+            state="readonly", width=20, values=self._stage_names(),
         )
         self.stage_combo.pack(side="left", padx=2)
         self.stage_var.trace_add("write", lambda *a: self._on_stage_change())
@@ -391,7 +334,6 @@ class StageBlock:
             header, text="+ Nova etapa", command=self._nova_etapa,
         ).pack(side="left", padx=4)
 
-        # Botões ↑↓ e Remover (à direita)
         ttk.Button(
             header, text="Remover etapa",
             command=lambda: self.on_remove_block(self),
@@ -409,7 +351,6 @@ class StageBlock:
                 command=lambda: self.on_move_up(self),
             ).pack(side="right", padx=2)
 
-        # ---- Cabeçalho das colunas (grid alinhado ao StepRow) ----
         cols = ttk.Frame(self.frame)
         cols.pack(fill="x", pady=(6, 0))
 
@@ -421,7 +362,6 @@ class StageBlock:
                 row=0, column=col, padx=STEP_PADX, sticky="w",
             )
 
-        # Container de passos
         self.steps_container = ttk.Frame(self.frame)
         self.steps_container.pack(fill="x")
 
@@ -575,6 +515,7 @@ class RecipeWindow:
         setattr(self, attr, [d for d in data if d.get("active", True)])
 
     def _build_ui(self):
+        # ===== Cabeçalho =====
         header = ttk.LabelFrame(self.root, text="Receita Base", padding=8)
         header.pack(fill="x", padx=10, pady=(10, 4))
 
@@ -618,7 +559,7 @@ class RecipeWindow:
         self.recipe_combo_var = tk.StringVar()
         self.recipe_combo = ttk.Combobox(
             row3, textvariable=self.recipe_combo_var,
-            state="readonly", width=40,
+            state="readonly", width=32,
         )
         self.recipe_combo.pack(side="left", padx=4)
         self.recipe_combo.bind(
@@ -626,9 +567,18 @@ class RecipeWindow:
         )
 
         ttk.Button(
-            row3, text="Nova receita", command=self._nova_receita,
-        ).pack(side="left", padx=8)
+            row3, text="Nova Receita", command=self._nova_receita,
+        ).pack(side="left", padx=6)
 
+        ttk.Button(
+            row3, text="Salvar Alterações", command=self._salvar_cabecalho,
+        ).pack(side="left", padx=2)
+
+        ttk.Button(
+            row3, text="Limpar Tudo", command=self._limpar_tudo,
+        ).pack(side="left", padx=2)
+
+        # ===== Área de blocos =====
         container = ttk.Frame(self.root)
         container.pack(fill="both", expand=True, padx=10, pady=4)
 
@@ -647,6 +597,7 @@ class RecipeWindow:
             lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")),
         )
 
+        # ===== Rodapé =====
         footer = ttk.Frame(self.root)
         footer.pack(fill="x", padx=10, pady=(4, 10))
 
@@ -674,9 +625,19 @@ class RecipeWindow:
         ).pack(side="right", padx=4)
 
         ttk.Button(
-            footer, text="Salvar tudo", command=self._salvar_tudo,
+            footer, text="Salvar Execuções", command=self._salvar_execucoes,
         ).pack(side="right")
 
+        # Info: mostra qual receita está sendo editada
+        self.lbl_receita_atual = ttk.Label(
+            self.root,
+            text="Nenhuma receita carregada",
+            foreground="#555",
+            padding=(10, 0),
+        )
+        self.lbl_receita_atual.pack(fill="x")
+
+    # ---- blocos ----
     def add_block(self):
         block = StageBlock(
             self.blocks_frame,
@@ -706,7 +667,6 @@ class RecipeWindow:
         self.blocks.remove(block)
         self._recalc_total()
 
-    # ---- mover blocos ↑↓ ----
     def _mover_bloco_acima(self, block):
         idx = self.blocks.index(block)
         if idx == 0:
@@ -728,7 +688,6 @@ class RecipeWindow:
         self._recalc_total()
 
     def _repack_blocks(self):
-        """Reposiciona os frames dos blocos na ordem atual de self.blocks."""
         for b in self.blocks:
             b.frame.pack_forget()
         for b in self.blocks:
@@ -788,6 +747,9 @@ class RecipeWindow:
                     "operacao": step.operation_var.get() or "?",
                     "etapa": etapa_nome,
                     "incorporado": pct > 0,
+                    "insumo": step.ingredient_var.get() or "",
+                    "ph": step.ph_var.get() or "7.00",
+                    "temperatura": step.temperature_var.get() or "20.0",
                 })
         TimelineDialog(
             self.root,
@@ -832,12 +794,14 @@ class RecipeWindow:
                 self.unit_size_var.set(f'{u["symbol"]} - {u["unit"]}')
                 break
 
-        # Agrupa execuções por etapa
+        self.lbl_receita_atual.config(
+            text=f"Editando: {dados['base_recipe']} (id {recipe_id})"
+        )
+
         grupos = {}
         for ex in execucoes:
             grupos.setdefault(ex["stage_execution"], []).append(ex)
 
-        # Ordena os grupos pelo menor elapsed_time de cada um
         grupos_ordenados = sorted(
             grupos.items(),
             key=lambda kv: min(
@@ -901,7 +865,6 @@ class RecipeWindow:
                         if u["id"] == ex["utensils"]:
                             step.utensil_var.set(u["utensil"])
                             break
-                # Incorporação
                 inc = ex.get("incorporation_percentage")
                 if inc is None:
                     inc = "0" if ex.get("unincorporated_ingredient") else "100"
@@ -911,15 +874,13 @@ class RecipeWindow:
                     inc_str = "100.00"
                 step.incorporation_var.set(inc_str)
 
-                # Temperatura
                 temp = ex.get("temperature", "20.0")
                 try:
-                    temp_str = f"{Decimal(str(temp)):.1f}"   # ← 1 casa
+                    temp_str = f"{Decimal(str(temp)):.1f}"
                 except (InvalidOperation, TypeError):
                     temp_str = "20.0"
                 step.temperature_var.set(temp_str)
 
-                # pH
                 ph = ex.get("pH", "7.00")
                 try:
                     ph_str = f"{Decimal(str(ph)):.2f}"
@@ -929,7 +890,10 @@ class RecipeWindow:
 
         self._recalc_total()
 
-    def _nova_receita(self):
+    # ---- ações dos botões ----
+
+    def _limpar_tudo(self):
+        """Limpa a tela. Não mexe no backend."""
         for block in self.blocks:
             block.destroy()
         self.blocks.clear()
@@ -939,20 +903,23 @@ class RecipeWindow:
         self.size_var.set("1.00")
         self.unit_size_var.set("")
         self.recipe_combo_var.set("")
+        self.lbl_receita_atual.config(text="Nenhuma receita carregada")
         self.add_block()
 
-    def _salvar_tudo(self):
+    def _nova_receita(self):
+        """
+        Cria uma receita nova no backend com os dados do cabeçalho.
+        Não cria execuções (receita vazia). Adiciona no combo e seleciona.
+        """
         nome = self.name_var.get().strip()
         if not nome:
             messagebox.showwarning("Atenção", "Informe o nome da receita.")
             return
-
         try:
             size = float(self.size_var.get().replace(",", "."))
         except ValueError:
             messagebox.showwarning("Atenção", "Tamanho inválido.")
             return
-
         unit_size_id = None
         for u in self.units:
             if f'{u["symbol"]} - {u["unit"]}' == self.unit_size_var.get():
@@ -960,6 +927,98 @@ class RecipeWindow:
                 break
         if not unit_size_id:
             messagebox.showwarning("Atenção", "Escolha a unidade do tamanho.")
+            return
+
+        payload = {
+            "base_recipe": nome,
+            "description": self.description_var.get().strip(),
+            "size": f"{size:.2f}",
+            "unit_size": unit_size_id,
+            "active": True,
+        }
+
+        try:
+            receita = self.api.create_base_recipe_only_header(payload)
+        except Exception as e:
+            messagebox.showerror("Erro ao criar receita", str(e))
+            return
+
+        # Recarrega o combo e seleciona a nova
+        self._refresh_recipes_combo()
+        self.recipe_combo_var.set(receita["base_recipe"])
+        self.current_recipe_id = receita["id"]
+
+        # Limpa os blocos (nova receita não tem execuções)
+        for block in self.blocks:
+            block.destroy()
+        self.blocks.clear()
+        self.add_block()
+
+        self.lbl_receita_atual.config(
+            text=f"Editando: {receita['base_recipe']} (id {receita['id']})"
+        )
+
+        messagebox.showinfo(
+            "Sucesso",
+            f"Receita '{receita['base_recipe']}' criada.\n\n"
+            "Adicione etapas e passos, depois clique em 'Salvar Execuções'.",
+        )
+
+    def _salvar_cabecalho(self):
+        """Salva só o cabeçalho da receita selecionada."""
+        if not self.current_recipe_id:
+            messagebox.showwarning(
+                "Atenção",
+                "Nenhuma receita carregada. Clique em 'Nova Receita' "
+                "ou selecione uma no combo.",
+            )
+            return
+        nome = self.name_var.get().strip()
+        if not nome:
+            messagebox.showwarning("Atenção", "Informe o nome da receita.")
+            return
+        try:
+            size = float(self.size_var.get().replace(",", "."))
+        except ValueError:
+            messagebox.showwarning("Atenção", "Tamanho inválido.")
+            return
+        unit_size_id = None
+        for u in self.units:
+            if f'{u["symbol"]} - {u["unit"]}' == self.unit_size_var.get():
+                unit_size_id = u["id"]
+                break
+        if not unit_size_id:
+            messagebox.showwarning("Atenção", "Escolha a unidade do tamanho.")
+            return
+
+        payload = {
+            "base_recipe": nome,
+            "description": self.description_var.get().strip(),
+            "size": f"{size:.2f}",
+            "unit_size": unit_size_id,
+        }
+
+        try:
+            self.api.update_base_recipe(self.current_recipe_id, payload)
+        except Exception as e:
+            messagebox.showerror("Erro ao salvar cabeçalho", str(e))
+            return
+
+        self._refresh_recipes_combo()
+        self.recipe_combo_var.set(nome)
+        messagebox.showinfo("Sucesso", "Cabeçalho atualizado.")
+
+    def _salvar_execucoes(self):
+        """
+        Salva as execuções na receita escolhida no combobox.
+        Não mexe no cabeçalho.
+        """
+        if not self.current_recipe_id:
+            messagebox.showwarning(
+                "Atenção",
+                "Nenhuma receita selecionada. Selecione uma no combo "
+                "ou crie uma nova.",
+            )
             return
 
         execucoes = []
@@ -992,38 +1051,25 @@ class RecipeWindow:
             )
             return
 
-        if self.current_recipe_id:
-            ok = messagebox.askyesno(
-                "Confirmar",
-                "Isso vai apagar todas as execuções salvas desta receita "
-                "e recriar as novas. Continuar?",
-            )
-            if not ok:
-                return
+        ok = messagebox.askyesno(
+            "Confirmar",
+            f"Isso vai apagar todas as execuções salvas da receita "
+            f"'{self.name_var.get()}' e recriar as novas.\n\nContinuar?",
+        )
+        if not ok:
+            return
 
-        payload = {
-            "base_recipe": nome,
-            "description": self.description_var.get().strip(),
-            "size": f"{size:.2f}",
-            "unit_size": unit_size_id,
-            "active": True,
-            "executions": execucoes,
-        }
+        payload = {"executions": execucoes}
 
         try:
-            if self.current_recipe_id:
-                receita = self.api.replace_executions(
-                    self.current_recipe_id, payload,
-                )
-            else:
-                receita = self.api.create_base_recipe(payload)
-                self.current_recipe_id = receita["id"]
+            self.api.replace_executions(self.current_recipe_id, payload)
         except Exception as e:
-            messagebox.showerror("Erro ao salvar", str(e))
+            messagebox.showerror("Erro ao salvar execuções", str(e))
             return
 
         messagebox.showinfo(
             "Sucesso",
-            f"Receita '{receita['base_recipe']}' salva.",
+            f"Execuções da receita '{self.name_var.get()}' salvas.",
         )
-        self._refresh_recipes_combo()
+        # Recarrega pra refletir
+        self._carregar_receita(self.current_recipe_id)
