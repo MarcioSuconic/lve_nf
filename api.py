@@ -188,3 +188,19 @@ class APIClient:
         """POST /api/base-recipes/ com executions=[] (receita vazia)."""
         payload = {**payload, "executions": []}
         return self._post("/api/base-recipes/", payload)
+    
+    def update_food_ingredient(self, ingredient_id: int, payload: dict):
+        """PUT /api/food-ingredients/{id}/"""
+        return self._post(
+            f"/api/food-ingredients/{ingredient_id}/",
+            payload,
+            method="PUT",
+        )
+
+    def update_density(self, density_id: int, payload: dict):
+        """PATCH /api/food-ingredient-densities/{id}/"""
+        return self._post(
+            f"/api/food-ingredient-densities/{density_id}/",
+            payload,
+            method="PATCH",
+        )

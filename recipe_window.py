@@ -1059,11 +1059,34 @@ class RecipeWindow:
         if not ok:
             return
 
-        payload = {"executions": execucoes}
+        # Pega os dados atuais do cabeçalho
+        unit_size_id = None
+        for u in self.units:
+            if f'{u["symbol"]} - {u["unit"]}' == self.unit_size_var.get():
+                unit_size_id = u["id"]
+                break
+
+        payload = {
+            "base_recipe": self.name_var.get().strip(),
+            "description": self.description_var.get().strip(),
+            "size": self.size_var.get().strip().replace(",", "."),
+            "unit_size": unit_size_id,
+            "active": True,
+            "executions": execucoes,
+        }
+        
+        import json
+        print("=" * 60)
+        print("PAYLOAD ENVIADO:")
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+        print("=" * 60)
 
         try:
             self.api.replace_executions(self.current_recipe_id, payload)
         except Exception as e:
+            print("=" * 60)
+            print("ERRO:", str(e))
+            print("=" * 60)
             messagebox.showerror("Erro ao salvar execuções", str(e))
             return
 

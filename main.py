@@ -14,6 +14,9 @@ from subproduct_type_window import SubProductTypeWindow
 from subproduct_window import SubProductWindow
 from product_window import ProductWindow
 from schedule_window import ScheduleWindow
+from machinery_window import MachineryWindow
+from utensil_window import UtensilWindow
+from ingredient_window import IngredientWindow
 
 
 def _limpar(root):
@@ -81,6 +84,21 @@ def _tela_menu(root, api):
     ).pack(fill="x", pady=6)
 
     ttk.Button(
+        frame, text="Maquinários",
+        command=lambda: _tela_machinery(root, api),
+    ).pack(fill="x", pady=6)
+
+    ttk.Button(
+        frame, text="Utensílios",
+        command=lambda: _tela_utensils(root, api),
+    ).pack(fill="x", pady=6)
+
+    ttk.Button(
+        frame, text="Insumos",
+        command=lambda: _tela_ingredients(root, api),
+    ).pack(fill="x", pady=6)
+
+    ttk.Button(
         frame, text="Sair",
         command=root.destroy,
     ).pack(fill="x", pady=(20, 0))
@@ -124,6 +142,18 @@ def _tela_products(root, api):
 def _tela_schedule(root, api):
     _limpar(root)
     ScheduleWindow(root, api, on_voltar=lambda: _tela_menu(root, api))
+
+def _tela_machinery(root, api):
+    _limpar(root)
+    MachineryWindow(root, api, on_voltar=lambda: _tela_menu(root, api))
+
+def _tela_utensils(root, api):
+    _limpar(root)
+    UtensilWindow(root, api, on_voltar=lambda: _tela_menu(root, api))
+
+def _tela_ingredients(root, api):
+    _limpar(root)
+    IngredientWindow(root, api, on_voltar=lambda: _tela_menu(root, api))
 
 def main():
     api = APIClient(API_BASE_URL)
