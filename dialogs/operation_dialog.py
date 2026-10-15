@@ -7,11 +7,10 @@ class OperationDialog(tk.Toplevel):
     """
     Modal para cadastrar/editar operação (OperationBaseRecipe).
 
-    Uso:
-        dlg = OperationDialog(parent, api)
-        parent.wait_window(dlg)
-        if dlg.created:
-            operacao = dlg.created
+    Regra de mão de obra:
+      - Vazio  → usa o tempo do passo (fallback)
+      - 0      → ninguém trabalha (ex: descansar)
+      - > 0    → tempo fixo (ex: fornear = 1)
     """
 
     def __init__(self, parent, api, operation=None):
@@ -31,6 +30,7 @@ class OperationDialog(tk.Toplevel):
 
         row = 0
 
+        # Nome
         ttk.Label(frm, text="Nome da operação:").grid(
             row=row, column=0, sticky="w", pady=4,
         )
@@ -42,6 +42,7 @@ class OperationDialog(tk.Toplevel):
         entry.focus_set()
         row += 1
 
+        # Descrição
         ttk.Label(frm, text="Descrição:").grid(
             row=row, column=0, sticky="w", pady=4,
         )
@@ -53,25 +54,33 @@ class OperationDialog(tk.Toplevel):
         )
         row += 1
 
+        # Mão de obra
         ttk.Label(frm, text="Mão de obra (min):").grid(
             row=row, column=0, sticky="w", pady=4,
         )
+        valor_inicial = (operation or {}).get("labor_minutes")
         self.labor_var = tk.StringVar(
-            value=str((operation or {}).get("labor_minutes", "0.00")),
+            value="" if valor_inicial is None else str(valor_inicial),
         )
         ttk.Entry(frm, textvariable=self.labor_var, width=10).grid(
             row=row, column=1, pady=4, sticky="w",
         )
         row += 1
 
+        # Legenda
+        legenda = ttk.Frame(frm)
+        legenda.grid(row=row, column=0, columnspan=2, sticky="w", pady=(0, 8))
         ttk.Label(
-            frm,
-            text="Ex: fornear = 1 min de mão de obra (forno ligado 60 min)",
+            legenda,
+            text="Vazio = usa o tempo do passo   |   "
+                 "0 = ninguém trabalha   |   "
+                 "> 0 = tempo fixo",
             foreground="#666",
             font=("", 8),
-        ).grid(row=row, column=0, columnspan=2, sticky="w", pady=(0, 8))
+        ).pack(anchor="w")
         row += 1
 
+        # Botões
         btns = ttk.Frame(frm)
         btns.grid(row=row, column=0, columnspan=2, pady=(14, 0), sticky="e")
         ttk.Button(btns, text="Cancelar", command=self.destroy).pack(
@@ -88,18 +97,23 @@ class OperationDialog(tk.Toplevel):
             messagebox.showwarning("Atenção", "Informe o nome.", parent=self)
             return
 
-        try:
-            labor = float(self.labor_var.get().replace(",", ".") or "0")
-        except ValueError:
-            messagebox.showwarning(
-                "Atenção", "Mão de obra inválida.", parent=self,
-            )
-            return
+        # Mão de obra: pode ser vazia (None), 0 ou > 0
+        labor_str = self.labor_var.get().strip().replace(",", ".")
+        if not labor_str:
+            labor_minutes = None
+        else:
+            try:
+                labor_minutes = float(labor_str)
+            except ValueError:
+                messagebox.showwarning(
+                    "Atenção", "Mão de obra inválida.", parent=self,
+                )
+                return
 
         payload = {
             "operation_base_recipe": name,
             "description": self.desc_var.get().strip() or None,
-            "labor_minutes": f"{labor:.2f}",
+            "labor_minutes": labor_minutes,
             "active": True,
         }
 
@@ -119,4 +133,3 @@ class OperationDialog(tk.Toplevel):
 
         self.created = created
         self.destroy()
-    

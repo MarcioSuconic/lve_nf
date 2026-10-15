@@ -17,7 +17,8 @@ from schedule_window import ScheduleWindow
 from machinery_window import MachineryWindow
 from utensil_window import UtensilWindow
 from ingredient_window import IngredientWindow
-
+from production_pending_window import ProductionPendingWindow
+from production_plan_window import ProductionPlanWindow
 
 def _limpar(root):
     """Remove todos os widgets do root, para trocar de tela."""
@@ -99,6 +100,16 @@ def _tela_menu(root, api):
     ).pack(fill="x", pady=6)
 
     ttk.Button(
+        frame, text="Produções Pendentes",
+        command=lambda: _tela_production_pending(root, api),
+    ).pack(fill="x", pady=6)
+    
+    ttk.Button(
+        frame, text="Planejar Produção",
+        command=lambda: _tela_production_plan(root, api),
+    ).pack(fill="x", pady=6)    
+
+    ttk.Button(
         frame, text="Sair",
         command=root.destroy,
     ).pack(fill="x", pady=(20, 0))
@@ -154,6 +165,14 @@ def _tela_utensils(root, api):
 def _tela_ingredients(root, api):
     _limpar(root)
     IngredientWindow(root, api, on_voltar=lambda: _tela_menu(root, api))
+    
+def _tela_production_pending(root, api):
+    _limpar(root)
+    ProductionPendingWindow(root, api, on_voltar=lambda: _tela_menu(root, api))
+    
+def _tela_production_plan(root, api):
+    _limpar(root)
+    ProductionPlanWindow(root, api, on_voltar=lambda: _tela_menu(root, api))
 
 def main():
     api = APIClient(API_BASE_URL)

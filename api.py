@@ -1,4 +1,4 @@
-#/home/marcio/Desktop/projetos/lve_nf/api.py
+# lve_nf/api.py
 import requests
 
 
@@ -51,8 +51,15 @@ class APIClient:
                 url = None
         return results
 
-    def _post(self, path: str, payload: dict, method: str = "POST"):
-        """Faz POST, PUT ou PATCH em `path` com `payload`."""
+    def _post(self, path: str, payload: dict | None = None, method: str = "POST"):
+        """
+        Faz POST, PUT, PATCH ou DELETE em `path`.
+
+        - POST: payload no corpo, devolve JSON
+        - PUT: payload no corpo, devolve JSON
+        - PATCH: payload no corpo, devolve JSON
+        - DELETE: sem corpo, devolve {} ou nada
+        """
         url = f"{self.base_url}{path}"
         try:
             if method == "PUT":
@@ -63,17 +70,27 @@ class APIClient:
                 r = requests.patch(
                     url, json=payload, headers=self._headers(), timeout=15,
                 )
-            else:
+            elif method == "DELETE":
+                r = requests.delete(
+                    url, headers=self._headers(), timeout=10,
+                )
+            else:  # POST
                 r = requests.post(
                     url, json=payload, headers=self._headers(), timeout=15,
                 )
         except requests.RequestException as e:
             raise APIError(f"Erro de conexão: {e}")
-        if r.status_code in (200, 201, 204):
+
+        # DELETE devolve 204 (sem corpo)
+        if r.status_code == 204:
+            return {}
+
+        if r.status_code in (200, 201):
             try:
                 return r.json()
             except Exception:
                 return {}
+
         try:
             detail = r.json()
         except Exception:
@@ -142,30 +159,52 @@ class APIClient:
         return self._post("/api/food-ingredients/", payload)
 
     def create_base_recipe(self, payload: dict):
-        """
-        Cria uma BaseRecipe completa (cabeçalho + execuções).
-        O endpoint aceita o campo `executions` no mesmo POST.
-        """
         return self._post("/api/base-recipes/", payload)
+
+    def create_base_recipe_only_header(self, payload: dict):
+        return self._post("/api/base-recipes/", {**payload, "executions": []})
 
     def replace_executions(self, recipe_id: int, payload: dict):
         return self._post(
             f"/api/base-recipes/{recipe_id}/replace-executions/",
             payload,
         )
-        
+
+    def update_base_recipe(self, recipe_id: int, payload: dict):
+        return self._post(
+            f"/api/base-recipes/{recipe_id}/",
+            payload,
+            method="PATCH",
+        )
+
+    def update_food_ingredient(self, ingredient_id: int, payload: dict):
+        return self._post(
+            f"/api/food-ingredients/{ingredient_id}/",
+            payload,
+            method="PUT",
+        )
+
+    def update_density(self, density_id: int, payload: dict):
+        return self._post(
+            f"/api/food-ingredient-densities/{density_id}/",
+            payload,
+            method="PATCH",
+        )
+
+    # ------------------------------------------------------------------ cost
+
     def get_recipe_cost(self, recipe_id: int):
         return self._get(f"/api/base-recipes/{recipe_id}/cost/")
-    
+
     def get_product_unit_cost(self, product_id: int, data: str | None = None):
         path = f"/api/products/{product_id}/unit-cost/"
         if data:
             path += f"?data={data}"
         return self._get(path)
-    
+
+    # ------------------------------------------------------------------ tech sheet
 
     def generate_tech_sheet(self, product_id: int):
-        """POST /api/products/{id}/tech-sheet/ — gera nova versão."""
         return self._post(
             f"/api/products/{product_id}/tech-sheet/", {},
         )
@@ -176,31 +215,8 @@ class APIClient:
             path += f"?version={version}"
         return f"{self.base_url}{path}"
     
-    def update_base_recipe(self, recipe_id: int, payload: dict):
-        """PATCH /api/base-recipes/{id}/ — atualiza só o cabeçalho."""
-        return self._post(
-            f"/api/base-recipes/{recipe_id}/",
-            payload,
-            method="PATCH",
-        )
-
-    def create_base_recipe_only_header(self, payload: dict):
-        """POST /api/base-recipes/ com executions=[] (receita vazia)."""
-        payload = {**payload, "executions": []}
-        return self._post("/api/base-recipes/", payload)
-    
-    def update_food_ingredient(self, ingredient_id: int, payload: dict):
-        """PUT /api/food-ingredients/{id}/"""
-        return self._post(
-            f"/api/food-ingredients/{ingredient_id}/",
-            payload,
-            method="PUT",
-        )
-
-    def update_density(self, density_id: int, payload: dict):
-        """PATCH /api/food-ingredient-densities/{id}/"""
-        return self._post(
-            f"/api/food-ingredient-densities/{density_id}/",
-            payload,
-            method="PATCH",
+    def get_shopping_list_pdf_url(self, production_id: int) -> str:
+        return (
+            f"{self.base_url}/api/pending-productions/"
+            f"{production_id}/shopping-list.pdf/"
         )
