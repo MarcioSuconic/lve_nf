@@ -185,6 +185,22 @@ class ProductWindow:
         )
         self.subcategory_combo.pack(side="left", padx=4)
 
+        # ---- Capacidade e produção padrão ----
+        row6 = ttk.Frame(header)
+        row6.pack(fill="x", pady=(6, 0))
+
+        ttk.Label(row6, text="Capacidade de produção:").pack(side="left")
+        self.capacity_var = tk.StringVar()
+        ttk.Entry(row6, textvariable=self.capacity_var, width=12).pack(
+            side="left", padx=(4, 12),
+        )
+
+        ttk.Label(row6, text="Produção padrão:").pack(side="left")
+        self.default_prod_var = tk.StringVar()
+        ttk.Entry(row6, textvariable=self.default_prod_var, width=12).pack(
+            side="left", padx=4,
+        )
+
         # ===== Carregar produto =====
         load_frame = ttk.Frame(self.root, padding=(10, 4))
         load_frame.pack(fill="x")
@@ -321,6 +337,12 @@ class ProductWindow:
         self.menu_desc_var.set(prod.get("description_menu", ""))
         self.weight_var.set(str(prod.get("product_weight_or_volume", "")))
 
+        # Capacidade e produção padrão
+        cap = prod.get("production_capacity")
+        self.capacity_var.set(str(cap) if cap is not None else "")
+        dp = prod.get("default_production")
+        self.default_prod_var.set(str(dp) if dp is not None else "")
+
         for u in self.units:
             if u["id"] == prod.get("unit_weight_or_volume"):
                 self.unit_var.set(f'{u["symbol"]} - {u["unit"]}')
@@ -342,15 +364,12 @@ class ProductWindow:
             row.destroy()
         self.composition_rows.clear()
 
-        # Mapeia ID de vínculo → nome do sub-produto (pra resolver relative_to)
         id_vinculo_para_nome = {}
         for v in vinculos:
-            # Busca o nome do sub-produto
             nome = v.get("sub_product_name", "")
             id_vinculo_para_nome[v["id"]] = nome
 
         for v in vinculos:
-            # Converte relative_to (ID) em relative_to_name
             rel_id = v.get("relative_to")
             v["relative_to_name"] = id_vinculo_para_nome.get(rel_id)
             self.add_composition_row(data=v)
@@ -358,12 +377,9 @@ class ProductWindow:
         if not vinculos:
             self.add_composition_row()
 
-        # Atualiza os combos "Relativo a" (agora que temos todos os
-        # sub-produtos da composição)
         for r in self.composition_rows:
             r.refresh_relative_to()
 
-        # Agora preenche os "Relativo a" que estavam pendentes
         for r in self.composition_rows:
             r.aplicar_relative_pendente()
 
@@ -377,6 +393,8 @@ class ProductWindow:
         self.desc_var.set("")
         self.menu_desc_var.set("")
         self.weight_var.set("")
+        self.capacity_var.set("")
+        self.default_prod_var.set("")
         self.unit_var.set("")
         self.subcategory_var.set("")
         self.product_combo_var.set("")
@@ -423,6 +441,26 @@ class ProductWindow:
             messagebox.showwarning("Atenção", "Peso/volume inválido.")
             return
 
+        # Capacidade e produção padrão (opcionais)
+        cap_str = self.capacity_var.get().strip().replace(",", ".")
+        prod_pad_str = self.default_prod_var.get().strip().replace(",", ".")
+
+        try:
+            cap = float(cap_str) if cap_str else None
+        except ValueError:
+            messagebox.showwarning(
+                "Atenção", "Capacidade inválida.",
+            )
+            return
+
+        try:
+            prod_pad = float(prod_pad_str) if prod_pad_str else None
+        except ValueError:
+            messagebox.showwarning(
+                "Atenção", "Produção padrão inválida.",
+            )
+            return
+
         unit_id = None
         for u in self.units:
             if f'{u["symbol"]} - {u["unit"]}' == self.unit_var.get():
@@ -465,7 +503,6 @@ class ProductWindow:
             )
             return
 
-        # Valida relative_to obrigatório quando tem booleano ativo
         for row, d in composicao:
             if (
                 d["at_start"] or d["at_finish"] or d["after_to"]
@@ -478,7 +515,6 @@ class ProductWindow:
                 )
                 return
 
-        # Valida after_to + sinal -
         for row, d in composicao:
             if d["after_to"] and d["elapsed_signal"] == "-":
                 messagebox.showwarning(
@@ -509,6 +545,12 @@ class ProductWindow:
             "description_menu": menu_desc,
             "product_weight_or_volume": f"{peso:.4f}",
             "unit_weight_or_volume": unit_id,
+            "production_capacity": (
+                f"{cap:.3f}" if cap is not None else None
+            ),
+            "default_production": (
+                f"{prod_pad:.3f}" if prod_pad is not None else None
+            ),
             "store": store_id,
             "sub_category": subcat_id,
             "active": True,
@@ -521,7 +563,6 @@ class ProductWindow:
                     payload, method="PUT",
                 )
                 product_id = self.current_product_id
-                # Apaga vínculos antigos
                 import requests
                 antigos = self.api._get_paginated(
                     f"/api/product-x-sub-products/?product={product_id}"
@@ -540,7 +581,6 @@ class ProductWindow:
             messagebox.showerror("Erro ao salvar produto", str(e))
             return
 
-        # ---------- cria vínculos em ordem de dependência ----------
         try:
             self._criar_vinculos_ordenados(product_id, composicao)
         except Exception as e:
@@ -554,20 +594,13 @@ class ProductWindow:
         self.current_product_id = product_id
 
     def _criar_vinculos_ordenados(self, product_id, composicao):
-        """
-        Cria os vínculos em ordem de dependência:
-          - Primeiro os sem relative_to
-          - Depois os que dependem dos já criados
-          - Repete até acabar
-        """
-        # Mapa nome_do_subproduto -> (row, dados)
         por_nome = {}
         for row, d in composicao:
             nome = row.subproduct_var.get()
             por_nome[nome] = (row, d)
 
         pendentes = set(por_nome.keys())
-        id_por_nome = {}  # nome -> ID do vínculo criado
+        id_por_nome = {}
 
         while pendentes:
             progrediu = False
@@ -575,16 +608,13 @@ class ProductWindow:
                 row, d = por_nome[nome]
                 rel_nome = d.get("relative_to_nome") or ""
 
-                # Se tem relative_to, precisa do ID do relativo
                 if rel_nome:
                     if rel_nome not in id_por_nome:
-                        # Ainda não criado, pula
                         continue
                     rel_id = id_por_nome[rel_nome]
                 else:
                     rel_id = None
 
-                # Cria o vínculo
                 payload = {
                     "product": product_id,
                     "sub_product": d["sub_product"],
@@ -605,7 +635,6 @@ class ProductWindow:
                 progrediu = True
 
             if not progrediu:
-                # Ciclo ou referência a sub-produto inexistente
                 raise ValueError(
                     "Não foi possível criar todos os vínculos. "
                     f"Verifique dependências circulares: {pendentes}"
@@ -627,12 +656,11 @@ class _CompositionRow:
         self.id_by_name = {
             f'{s["sub_product"]}': s["id"] for s in subproducts
         }
-        self._relative_to_pendente = None  # usado no preencher()
+        self._relative_to_pendente = None
 
         self.frame = ttk.Frame(parent)
         self.frame.pack(fill="x", pady=2)
 
-        # Sub-produto
         self.subproduct_var = tk.StringVar()
         self.subproduct_combo = ttk.Combobox(
             self.frame, textvariable=self.subproduct_var,
@@ -644,14 +672,12 @@ class _CompositionRow:
             "<<ComboboxSelected>>", lambda e: self._refresh_all_relatives(),
         )
 
-        # %
         self.pct_var = tk.StringVar(value="100.00")
         ttk.Entry(
             self.frame, textvariable=self.pct_var, width=10,
         ).grid(row=0, column=1, padx=2)
         self.pct_var.trace_add("write", lambda *a: self.on_change())
 
-        # Ref. temporal
         self.ref_var = tk.StringVar(value=REF_NENHUM)
         self.ref_combo = ttk.Combobox(
             self.frame, textvariable=self.ref_var,
@@ -663,7 +689,6 @@ class _CompositionRow:
             "<<ComboboxSelected>>", self._on_ref_change,
         )
 
-        # Relativo a
         self.relative_var = tk.StringVar()
         self.relative_combo = ttk.Combobox(
             self.frame, textvariable=self.relative_var,
@@ -671,7 +696,6 @@ class _CompositionRow:
         )
         self.relative_combo.grid(row=0, column=3, padx=2)
 
-        # Elapsed (min)
         self.elapsed_var = tk.StringVar(value="0")
         self.elapsed_entry = ttk.Entry(
             self.frame, textvariable=self.elapsed_var, width=10,
@@ -679,7 +703,6 @@ class _CompositionRow:
         )
         self.elapsed_entry.grid(row=0, column=4, padx=2)
 
-        # Sinal
         self.signal_var = tk.StringVar(value="+")
         self.signal_combo = ttk.Combobox(
             self.frame, textvariable=self.signal_var,
@@ -687,16 +710,12 @@ class _CompositionRow:
         )
         self.signal_combo.grid(row=0, column=5, padx=2)
 
-        # Remover
         ttk.Button(
             self.frame, text="X", width=3,
             command=lambda: self.on_remove(self),
         ).grid(row=0, column=6, padx=2)
 
-    # ---- callbacks ----
     def _refresh_all_relatives(self):
-        """Quando muda o sub-produto, atualiza os combos 'Relativo a'
-        de todas as linhas (porque o nome mudou)."""
         for r in self.all_rows:
             r.refresh_relative_to()
 
@@ -713,10 +732,7 @@ class _CompositionRow:
             self.signal_combo.config(state="readonly")
             self.refresh_relative_to()
 
-    # ---- refresh ----
     def refresh_relative_to(self):
-        """Atualiza as opções do combo 'Relativo a' com os outros
-        sub-produtos da composição."""
         opcoes = []
         for r in self.all_rows:
             if r is self:
@@ -728,9 +744,7 @@ class _CompositionRow:
         if self.relative_var.get() and self.relative_var.get() not in opcoes:
             self.relative_var.set("")
 
-    # ---- payload ----
     def preencher(self, v):
-        """v = vínculo vindo da API."""
         for name, id_ in self.id_by_name.items():
             if id_ == v["sub_product"]:
                 self.subproduct_var.set(name)
@@ -747,7 +761,6 @@ class _CompositionRow:
         else:
             self.ref_var.set(REF_NENHUM)
 
-        # Usa o nome do relativo (não o ID)
         rel_nome = v.get("relative_to_name")
         if rel_nome:
             self.relative_var.set(rel_nome)
@@ -759,22 +772,6 @@ class _CompositionRow:
         self._on_ref_change()
 
     def aplicar_relative_pendente(self):
-        """
-        Aplica o `relative_to` que veio da API, depois que todos os
-        combos foram preenchidos.
-        """
-        if self._relative_to_pendente is None:
-            return
-        # Procura o sub-produto cujo ID é _relative_to_pendente
-        # Como o combo guarda NOME, e não temos o ID dos outros vínculos,
-        # precisamos de outra abordagem: o backend devolve `relative_to`
-        # como ID de vínculo. Mas no `lve_nf`, só temos os dados do
-        # próprio vínculo. Então usamos `relative_to_name` (do serializer).
-        # Esse método é substituído pelo `_carregar_produto` que vai
-        # preencher direto pelo nome.
-
-        # Solução: o `_carregar_produto` passa o `relative_to_name` no
-        # `preencher`, em vez do `relative_to` (ID).
         pass
 
     def get_payload(self):

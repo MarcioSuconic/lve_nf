@@ -451,16 +451,30 @@ class _ItemRow:
             f'{u["symbol"]} - {u["unit"]}': u["id"] for u in units
         }
 
+        # Unidade padrão de PRODUÇÃO (contagem: un, dz, cx)
+        self.unit_production_default = None
+        for u in units:
+            if (
+                u.get("physical_quantity_slug") == "unidade"
+                and u.get("is_benchmark")
+            ):
+                self.unit_production_default = u
+                break
+
         self.frame = ttk.Frame(parent)
         self.frame.pack(fill="x", pady=2)
 
         # Produto
         self.product_var = tk.StringVar()
-        ttk.Combobox(
+        self.product_combo = ttk.Combobox(
             self.frame, textvariable=self.product_var,
             state="readonly", width=38,
             values=list(self.product_id_by_name.keys()),
-        ).grid(row=0, column=0, padx=2)
+        )
+        self.product_combo.grid(row=0, column=0, padx=2)
+        self.product_combo.bind(
+            "<<ComboboxSelected>>", self._on_product_change,
+        )
 
         # Qtde
         self.qtde_var = tk.StringVar(value="1")
@@ -470,17 +484,54 @@ class _ItemRow:
 
         # Unidade
         self.unit_var = tk.StringVar()
-        ttk.Combobox(
+        self.unit_combo = ttk.Combobox(
             self.frame, textvariable=self.unit_var,
             state="readonly", width=16,
             values=list(self.unit_id_by_label.keys()),
-        ).grid(row=0, column=2, padx=2)
+        )
+        self.unit_combo.grid(row=0, column=2, padx=2)
+
+        # Já vem com a unidade padrão de produção
+        if self.unit_production_default:
+            self.unit_var.set(
+                f'{self.unit_production_default["symbol"]} - '
+                f'{self.unit_production_default["unit"]}'
+            )
 
         # Remover
         ttk.Button(
             self.frame, text="X", width=3,
             command=lambda: self.on_remove(self),
         ).grid(row=0, column=3, padx=2)
+
+    def _on_product_change(self, _event=None):
+        """
+        Quando escolhe um produto:
+          - Preenche a quantidade com o default (se tiver)
+          - Define a unidade padrão de PRODUÇÃO (contagem, não peso)
+        """
+        nome = self.product_var.get()
+        prod = next(
+            (p for p in self.products if p["product"] == nome), None,
+        )
+        if not prod:
+            return
+
+        # Quantidade padrão
+        default = prod.get("default_production")
+        if default is not None and str(default).strip() != "":
+            d = str(default).rstrip("0").rstrip(".")
+            if d:
+                self.qtde_var.set(d)
+        else:
+            self.qtde_var.set("")
+
+        # Unidade de PRODUÇÃO (contagem — un, dz, cx)
+        if self.unit_production_default:
+            self.unit_var.set(
+                f'{self.unit_production_default["symbol"]} - '
+                f'{self.unit_production_default["unit"]}'
+            )
 
     def get_payload(self):
         prod_id = self.product_id_by_name.get(self.product_var.get())
